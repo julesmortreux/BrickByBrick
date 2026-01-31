@@ -1,0 +1,35 @@
+# FastAPI & Server
+fastapi
+uvicorn
+python-multipart
+pydantic
+
+# Data Processing
+pandas
+numpy
+
+# Geocoding & Distance Calculation
+pgeocode
+
+# Web Scraping
+requests
+beautifulsoup4
+lxml
+
+# Environment Variables
+python-dotenv
+
+# Database (PostgreSQL)
+psycopg2-binary
+sqlalchemy
+
+# CORS & Security
+python-jose
+passlib
+bcrypt
+
+# HTTP Client
+httpx
+
+# Validation & Utils
+email-validator
