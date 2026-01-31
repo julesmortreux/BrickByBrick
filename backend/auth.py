@@ -7,7 +7,7 @@ import bcrypt
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from jose import JWTError, jwt
@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 
 from database import get_db
 from models import User, UserPreferences
+from limiter import limiter
 
 load_dotenv()
 
@@ -23,12 +24,21 @@ load_dotenv()
 # Configuration
 # ============================================
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-super-secret-key-change-in-production-min-32-chars")
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not SECRET_KEY or SECRET_KEY == "your-super-secret-key-change-in-production-min-32-chars":
+    # En production, on doit lever une erreur. En dev, on prévient juste.
+    if os.getenv("ENVIRONMENT") == "production":
+        raise ValueError("CRITICAL: JWT_SECRET_KEY is not set securely! Application refused to start.")
+    else:
+        print("WARNING: JWT_SECRET_KEY is not set securely. Using fallback for dev.")
+        SECRET_KEY = "dev-secret-key-do-not-use-in-prod"
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 REFRESH_TOKEN_EXPIRE_DAYS = 30
 
-security = HTTPBearer()
+# Optional bearer for Swagger UI
+security_bearer = HTTPBearer(auto_error=False)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 # ============================================
@@ -162,11 +172,24 @@ def decode_token(token: str) -> dict:
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
+    bearer: Optional[HTTPAuthorizationCredentials] = Depends(security_bearer),
     db: Session = Depends(get_db)
 ) -> User:
-    """Get current authenticated user from JWT token"""
-    token = credentials.credentials
+    """Get current authenticated user from JWT token (Cookie or Bearer)"""
+    # 1. Try Cookie
+    token = request.cookies.get("access_token")
+
+    # 2. Try Bearer header (fallback)
+    if not token and bearer:
+        token = bearer.credentials
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Non authentifié (Token manquant)"
+        )
+
     payload = decode_token(token)
     
     if payload.get("type") != "access":
@@ -202,8 +225,8 @@ async def get_current_user(
 # Routes
 # ============================================
 
-@router.post("/register", response_model=TokenResponse)
-async def register(user_data: UserRegister, db: Session = Depends(get_db)):
+@router.post("/register", response_model=UserResponse)
+async def register(response: Response, user_data: UserRegister, db: Session = Depends(get_db)):
     """Register a new user"""
     # Check if email already exists
     existing_user = db.query(User).filter(User.email == user_data.email.lower()).first()
@@ -224,27 +247,20 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     
-    # NOTE: Preferences are NOT created here - they will be created
-    # only when the user saves Widget 1 for the first time
-    
     # Generate tokens
     access_token = create_access_token({"sub": str(user.id)})
     refresh_token = create_refresh_token({"sub": str(user.id)})
     
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user={
-            "id": user.id,
-            "email": user.email,
-            "first_name": user.first_name,
-            "last_name": user.last_name
-        }
-    )
+    # Set cookies
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="lax")
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=True, samesite="lax")
+
+    return user
 
 
-@router.post("/login", response_model=TokenResponse)
-async def login(user_data: UserLogin, db: Session = Depends(get_db)):
+@router.post("/login", response_model=UserResponse)
+@limiter.limit("5/minute")
+async def login(request: Request, response: Response, user_data: UserLogin, db: Session = Depends(get_db)):
     """Login user"""
     user = db.query(User).filter(User.email == user_data.email.lower()).first()
     
@@ -268,22 +284,25 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
     access_token = create_access_token({"sub": str(user.id)})
     refresh_token = create_refresh_token({"sub": str(user.id)})
     
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user={
-            "id": user.id,
-            "email": user.email,
-            "first_name": user.first_name,
-            "last_name": user.last_name
-        }
-    )
+    # Set cookies
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="lax")
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=True, samesite="lax")
+
+    return user
 
 
-@router.post("/refresh", response_model=TokenResponse)
-async def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
-    """Refresh access token using refresh token"""
-    payload = decode_token(request.refresh_token)
+@router.post("/refresh", response_model=UserResponse)
+async def refresh_token(request: Request, response: Response, db: Session = Depends(get_db)):
+    """Refresh access token using refresh token (from cookie)"""
+    refresh_token_cookie = request.cookies.get("refresh_token")
+
+    if not refresh_token_cookie:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token de rafraîchissement manquant"
+        )
+
+    payload = decode_token(refresh_token_cookie)
     
     if payload.get("type") != "refresh":
         raise HTTPException(
@@ -304,16 +323,19 @@ async def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_
     access_token = create_access_token({"sub": str(user.id)})
     new_refresh_token = create_refresh_token({"sub": str(user.id)})
     
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=new_refresh_token,
-        user={
-            "id": user.id,
-            "email": user.email,
-            "first_name": user.first_name,
-            "last_name": user.last_name
-        }
-    )
+    # Set cookies
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="lax")
+    response.set_cookie(key="refresh_token", value=new_refresh_token, httponly=True, secure=True, samesite="lax")
+
+    return user
+
+
+@router.post("/logout")
+async def logout(response: Response):
+    """Logout user by clearing cookies"""
+    response.delete_cookie("access_token", httponly=True, secure=True, samesite="lax")
+    response.delete_cookie("refresh_token", httponly=True, secure=True, samesite="lax")
+    return {"message": "Déconnexion réussie"}
 
 
 @router.get("/me", response_model=UserResponse)

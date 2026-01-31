@@ -24,13 +24,6 @@ interface AuthContextType {
   refreshAuth: () => Promise<void>;
 }
 
-interface TokenResponse {
-  access_token: string;
-  refresh_token: string;
-  token_type: string;
-  user: User;
-}
-
 // ============================================
 // API URL
 // ============================================
@@ -58,16 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const checkAuth = async () => {
-    const accessToken = localStorage.getItem('access_token');
-    const refreshToken = localStorage.getItem('refresh_token');
+    // Try to use stored user info (not tokens) first for fast UI
     const storedUser = localStorage.getItem('user');
-
-    if (!accessToken || !refreshToken) {
-      setIsLoading(false);
-      return;
-    }
-
-    // Try to use stored user first for fast UI
     if (storedUser) {
       try {
         setUser(JSON.parse(storedUser));
@@ -76,15 +61,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Verify token with backend (with timeout)
+    // Verify session with backend (via Cookies)
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
       
       const response = await fetch(`${API_URL}/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        },
+        credentials: 'include', // Important: Send cookies
         signal: controller.signal
       });
 
@@ -95,10 +78,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(userData);
         localStorage.setItem('user', JSON.stringify(userData));
       } else if (response.status === 401) {
-        // Try to refresh token
+        // Try to refresh token (via Cookie)
         await refreshAuth();
       } else {
-        logout();
+        // Not authenticated
+        if (!storedUser) logout(); // Only logout if we didn't have a stored user to avoid flickering
       }
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -106,35 +90,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         console.error('Auth check failed:', error);
       }
-      // Keep user logged in if offline, tokens are still valid
+      // Keep user logged in if offline (using localStorage data)
     }
 
     setIsLoading(false);
   };
 
   const refreshAuth = async () => {
-    const refreshToken = localStorage.getItem('refresh_token');
-    
-    if (!refreshToken) {
-      logout();
-      return;
-    }
-
     try {
       const response = await fetch(`${API_URL}/auth/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ refresh_token: refreshToken })
+        credentials: 'include' // Send refresh_token cookie
       });
 
       if (response.ok) {
-        const data: TokenResponse = await response.json();
-        localStorage.setItem('access_token', data.access_token);
-        localStorage.setItem('refresh_token', data.refresh_token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        setUser(data.user);
+        const userData: User = await response.json();
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
       } else {
         logout();
       }
@@ -153,45 +128,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: {
           'Content-Type': 'application/json'
         },
+        credentials: 'include', // Receive cookies
         body: JSON.stringify({ email, password })
       });
     } catch (error) {
-      // Network error - server not reachable
+      // Network error
       throw new Error('Impossible de contacter le serveur. Vérifiez que le backend est lancé sur http://localhost:8000');
     }
 
     if (!response.ok) {
-      // Try to get the specific error message from the backend
       let errorMessage = 'Une erreur est survenue';
-      
       try {
         const errorData = await response.json();
-        
-        // Handle Pydantic validation errors (array of errors)
         if (errorData.detail && Array.isArray(errorData.detail)) {
           errorMessage = errorData.detail.map((err: { msg: string }) => err.msg).join('. ');
-        } 
-        // Handle simple error messages
-        else if (errorData.detail && typeof errorData.detail === 'string') {
+        } else if (errorData.detail && typeof errorData.detail === 'string') {
           errorMessage = errorData.detail;
         }
-        // Handle other error formats
-        else if (errorData.message) {
-          errorMessage = errorData.message;
-        }
       } catch {
-        // Could not parse JSON response
         errorMessage = `Erreur serveur (${response.status})`;
       }
-      
       throw new Error(errorMessage);
     }
 
-    const data: TokenResponse = await response.json();
-    localStorage.setItem('access_token', data.access_token);
-    localStorage.setItem('refresh_token', data.refresh_token);
-    localStorage.setItem('user', JSON.stringify(data.user));
-    setUser(data.user);
+    const userData: User = await response.json();
+    localStorage.setItem('user', JSON.stringify(userData));
+    setUser(userData);
   };
 
   const register = async (email: string, password: string, firstName: string, lastName: string) => {
@@ -203,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: {
           'Content-Type': 'application/json'
         },
+        credentials: 'include', // Receive cookies
         body: JSON.stringify({
           email,
           password,
@@ -211,47 +174,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
       });
     } catch (error) {
-      // Network error - server not reachable
-      throw new Error('Impossible de contacter le serveur. Vérifiez que le backend est lancé sur http://localhost:8000');
+      throw new Error('Impossible de contacter le serveur.');
     }
 
     if (!response.ok) {
-      // Try to get the specific error message from the backend
       let errorMessage = 'Une erreur est survenue';
-      
       try {
         const errorData = await response.json();
-        
-        // Handle Pydantic validation errors (array of errors)
-        if (errorData.detail && Array.isArray(errorData.detail)) {
-          errorMessage = errorData.detail.map((err: { msg: string }) => err.msg).join('. ');
-        } 
-        // Handle simple error messages
-        else if (errorData.detail && typeof errorData.detail === 'string') {
-          errorMessage = errorData.detail;
-        }
-        // Handle other error formats
-        else if (errorData.message) {
-          errorMessage = errorData.message;
-        }
+        if (errorData.detail) errorMessage = typeof errorData.detail === 'string' ? errorData.detail : JSON.stringify(errorData.detail);
       } catch {
-        // Could not parse JSON response
         errorMessage = `Erreur serveur (${response.status})`;
       }
-      
       throw new Error(errorMessage);
     }
 
-    const data: TokenResponse = await response.json();
-    localStorage.setItem('access_token', data.access_token);
-    localStorage.setItem('refresh_token', data.refresh_token);
-    localStorage.setItem('user', JSON.stringify(data.user));
-    setUser(data.user);
+    const userData: User = await response.json();
+    localStorage.setItem('user', JSON.stringify(userData));
+    setUser(userData);
   };
 
-  const logout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
+  const logout = async () => {
+    try {
+      await fetch(`${API_URL}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
     localStorage.removeItem('user');
     setUser(null);
     router.push('/login');
@@ -291,43 +241,40 @@ export function useAuth() {
 // ============================================
 
 export async function authFetch(url: string, options: RequestInit = {}) {
-  const accessToken = localStorage.getItem('access_token');
+  // We don't send Authorization header anymore, we rely on cookies
   
   const response = await fetch(`${API_URL}${url}`, {
     ...options,
+    credentials: 'include', // Send cookies
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
       ...options.headers
     }
   });
 
   // If unauthorized, try to refresh token
   if (response.status === 401) {
-    const refreshToken = localStorage.getItem('refresh_token');
-    
-    if (refreshToken) {
+    // Try refresh
+    try {
       const refreshResponse = await fetch(`${API_URL}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: refreshToken })
+        credentials: 'include'
       });
 
       if (refreshResponse.ok) {
-        const data = await refreshResponse.json();
-        localStorage.setItem('access_token', data.access_token);
-        localStorage.setItem('refresh_token', data.refresh_token);
-        
         // Retry original request
         return fetch(`${API_URL}${url}`, {
           ...options,
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${data.access_token}`,
             ...options.headers
           }
         });
       }
+    } catch (e) {
+      console.error("Auto-refresh failed", e);
     }
   }
 

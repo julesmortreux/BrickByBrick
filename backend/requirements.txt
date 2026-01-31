@@ -1,35 +1,36 @@
 # FastAPI & Server
-fastapi
-uvicorn
-python-multipart
-pydantic
+fastapi==0.109.0
+uvicorn==0.27.0
+python-multipart==0.0.9
+pydantic==2.6.0
+slowapi==0.1.9
 
 # Data Processing
-pandas
-numpy
+pandas==2.2.0
+numpy==1.26.0
 
 # Geocoding & Distance Calculation
-pgeocode
+pgeocode==0.4.0
 
 # Web Scraping
-requests
-beautifulsoup4
-lxml
+requests==2.31.0
+beautifulsoup4==4.12.0
+lxml==5.1.0
 
 # Environment Variables
-python-dotenv
+python-dotenv==1.0.0
 
 # Database (PostgreSQL)
-psycopg2-binary
-sqlalchemy
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.25
 
 # CORS & Security
-python-jose
-passlib
-bcrypt
+python-jose==3.3.0
+passlib==1.7.4
+bcrypt==4.1.2
 
 # HTTP Client
-httpx
+httpx==0.26.0
 
 # Validation & Utils
-email-validator
+email-validator==2.1.0
