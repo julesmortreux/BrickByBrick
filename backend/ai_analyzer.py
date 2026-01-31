@@ -227,7 +227,7 @@ Analyse cette opportunité d'investissement et fournis une réponse structurée 
     return prompt
 
 
-async def analyze_with_ai(
+def analyze_with_ai(
     scraped_data: Dict,
     market_data: Dict,
     financial_data: Dict,
@@ -386,8 +386,6 @@ def generate_fallback_analysis(
 
 # Test du module
 if __name__ == "__main__":
-    import asyncio
-
     print("\n🧪 TEST DU MODULE AI ANALYZER")
     print("=" * 80)
 
@@ -423,9 +421,9 @@ if __name__ == "__main__":
             "autofinancement": True
         }
 
-        async def test():
-            result = await analyze_with_ai(test_scraped, test_market, test_financial)
+        def test():
+            result = analyze_with_ai(test_scraped, test_market, test_financial)
             print("\n📊 Résultat de l'analyse:")
             print(json.dumps(result, indent=2, ensure_ascii=False))
 
-        asyncio.run(test())
+        test()

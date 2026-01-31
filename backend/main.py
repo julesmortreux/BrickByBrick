@@ -3,12 +3,16 @@ BrickByBrick - API Backend
 FastAPI server pour la plateforme d'aide à l'investissement immobilier
 """
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.errors import RateLimitExceeded
 import logging
 from datetime import datetime
 import pandas as pd
 
+from limiter import limiter
 from data_loader import load_data, get_data_store
 from schemas import SimulationRequest, SimulationResponse
 from schemas_market import (
@@ -45,6 +49,10 @@ app = FastAPI(
     redoc_url="/redoc"  # ReDoc : http://localhost:8000/redoc
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
 # ============================================================================
 # CONFIGURATION CORS
 # ============================================================================
@@ -57,8 +65,8 @@ app.add_middleware(
         "http://127.0.0.1:3000",  # Alternative localhost
     ],
     allow_credentials=True,
-    allow_methods=["*"],  # Autoriser toutes les méthodes (GET, POST, PUT, DELETE, etc.)
-    allow_headers=["*"],  # Autoriser tous les headers
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Cookie", "Set-Cookie", "X-Requested-With"],
 )
 
 logger.info("[OK] CORS configure pour http://localhost:3000")
@@ -214,7 +222,7 @@ def _get_health_message(status: str, loaded_count: int) -> str:
 # ============================================================================
 
 @app.get("/api/market-data", response_model=MarketDataResponse, summary="Market Data pour Widgets Phase 1")
-async def get_market_data(
+def get_market_data(
     code_postal: Optional[str] = None,
     departement: Optional[str] = None,
     budget_max: Optional[float] = None,
@@ -471,7 +479,7 @@ async def get_market_data(
 # ============================================================================
 
 @app.post("/api/simulate", response_model=SimulationResponse)
-async def simulate_investment(request: SimulationRequest):
+def simulate_investment(request: SimulationRequest):
     """
     Simule un investissement immobilier locatif de manière complète
     
@@ -615,7 +623,7 @@ class AnalyzeRequest(BaseModel):
 
 
 @app.post("/api/analyze")
-async def analyze_listing(request: AnalyzeRequest):
+def analyze_listing(request: AnalyzeRequest):
     """
     Analyse complète d'une annonce immobilière
     
@@ -934,7 +942,7 @@ async def analyze_listing(request: AnalyzeRequest):
         }
 
         # Appeler l'analyse IA
-        ai_analysis = await analyze_with_ai(
+        ai_analysis = analyze_with_ai(
             scraped_data=scraped_data,
             market_data=widgets_data,
             financial_data=financial_data_for_ai,
@@ -989,7 +997,7 @@ async def analyze_listing(request: AnalyzeRequest):
 # ============================================================================
 
 @app.get("/api/communes/search", summary="Recherche de communes pour autocomplétion")
-async def search_communes(q: str = Query(..., min_length=2, description="Terme de recherche")):
+def search_communes(q: str = Query(..., min_length=2, description="Terme de recherche")):
     """
     Recherche de communes depuis les données DVF pour l'autocomplétion.
 
@@ -1087,7 +1095,7 @@ async def search_communes(q: str = Query(..., min_length=2, description="Terme d
 # ============================================================================
 
 @app.get("/api/proximite/communes", summary="Communes dans rayon autour de villes avec accessibilité budget")
-async def get_communes_proximite(
+def get_communes_proximite(
     villes: str = Query(..., description="Liste de villes séparées par virgule (nom:code_postal)"),
     rayon_km: float = Query(20.0, description="Rayon de recherche en km"),
     budget_max: float = Query(..., description="Budget maximum pour calculer l'accessibilité"),
@@ -1228,7 +1236,7 @@ async def get_communes_proximite(
 # ============================================================================
 
 @app.get("/api/tension/communes", summary="Données de tension locative par commune pour un département")
-async def get_tension_communes(
+def get_tension_communes(
     departement: str = Query(..., description="Code département (ex: '69')")
 ):
     """
