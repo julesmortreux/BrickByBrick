@@ -143,7 +143,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       {/* Overlay for mobile/tablet */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300"
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300 backdrop-blur-sm"
           onClick={onClose}
         />
       )}
@@ -162,26 +162,26 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="flex flex-col h-full" style={{ padding: '32px 24px' }}>
           {/* Logo and Close Button */}
           <div className="mb-12 flex items-center justify-between">
-            <Link href="/" onClick={handleLinkClick} className="block">
-              <div className="text-2xl font-bold">
+            <Link href="/" onClick={handleLinkClick} className="block group">
+              <div className="text-2xl font-bold transition-transform duration-300 group-hover:scale-105">
                 <span className="text-white">Brick</span>
-                <span className="text-[var(--primary-light)]">ByBrick</span>
+                <span className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">ByBrick</span>
               </div>
             </Link>
             <button
               onClick={onClose}
-              className="lg:hidden w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[var(--bg-secondary)] transition-colors"
+              className="lg:hidden w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[var(--bg-secondary)] transition-colors text-[var(--text-muted)] hover:text-white"
               aria-label="Fermer la sidebar"
             >
-              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
 
           {/* Navigation Section */}
-          <div className="mb-16">
-            <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-8">
+          <div className="mb-12">
+            <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest mb-6 pl-4">
               Navigation
             </h3>
             <nav className="flex flex-col gap-2">
@@ -190,16 +190,18 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 onClick={handleLinkClick}
                 className={`
                   flex items-center gap-4 px-4 py-3 rounded-xl
-                  transition-all duration-200
+                  transition-all duration-300 group
                   ${isActive('/') 
-                    ? 'bg-gradient-to-r from-violet-500/20 to-purple-600/20 text-white border border-violet-500/30' 
+                    ? 'bg-gradient-to-r from-[var(--primary)] to-[var(--primary-dark)] text-white shadow-lg shadow-[var(--primary-glow)]'
                     : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-white'
                   }
                 `}
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
+                <div className={`${isActive('/') ? 'text-white' : 'text-[var(--text-muted)] group-hover:text-white transition-colors'}`}>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                  </svg>
+                </div>
                 <span className="font-medium">Accueil</span>
               </Link>
 
@@ -208,23 +210,25 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 onClick={handleLinkClick}
                 className={`
                   flex items-center gap-4 px-4 py-3 rounded-xl
-                  transition-all duration-200
+                  transition-all duration-300 group
                   ${isActive('/analyze') 
-                    ? 'bg-gradient-to-r from-violet-500/20 to-indigo-600/20 text-white border border-violet-500/30' 
+                    ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/20'
                     : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-white'
                   }
                 `}
               >
-                {Icons.ai}
+                <div className={`${isActive('/analyze') ? 'text-white' : 'text-[var(--text-muted)] group-hover:text-white transition-colors'}`}>
+                  {Icons.ai}
+                </div>
                 <span className="font-medium">Analyseur IA</span>
               </Link>
             </nav>
           </div>
 
           {/* Widgets Section */}
-          <div className="mb-16">
-            <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-8">
-              Widgets
+          <div className="mb-12">
+            <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest mb-6 pl-4">
+              Outils
             </h3>
             <nav className="flex flex-col gap-2">
               {widgets.map((widget) => (
@@ -234,15 +238,20 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   onClick={handleLinkClick}
                   className={`
                     flex items-center gap-4 px-4 py-3 rounded-xl
-                    transition-all duration-200
+                    transition-all duration-300 group
                     ${isActive(widget.href) 
-                      ? 'bg-gradient-to-r from-violet-500/20 to-purple-600/20 text-white border border-violet-500/30' 
+                      ? 'bg-[var(--bg-secondary)] text-white border border-[var(--border-color)] shadow-inner'
                       : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-white'
                     }
                   `}
                 >
-                  {Icons[widget.icon as keyof typeof Icons]}
+                  <div className={`${isActive(widget.href) ? 'text-[var(--primary-light)]' : 'text-[var(--text-muted)] group-hover:text-white transition-colors'}`}>
+                    {Icons[widget.icon as keyof typeof Icons]}
+                  </div>
                   <span className="font-medium text-sm">{widget.title}</span>
+                  {isActive(widget.href) && (
+                    <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[var(--primary-light)] animate-pulse" />
+                  )}
                 </Link>
               ))}
             </nav>
@@ -250,19 +259,16 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
           {/* Account Section */}
           {isAuthenticated && user && (
-            <div className="mt-auto pt-12 border-t border-[var(--border-color)]">
-              <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-8">
-                Compte
-              </h3>
-              <div className="flex flex-col gap-4">
+            <div className="mt-auto pt-8 border-t border-[var(--border-color)]">
+              <div className="flex flex-col gap-2">
                 {/* User Info */}
-                <div className="flex items-center gap-4 px-4 py-4 mb-2">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--primary-light)] flex items-center justify-center text-white font-semibold text-sm">
+                <div className="flex items-center gap-4 px-4 py-3 mb-4 bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)]">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--primary)] to-[var(--primary-light)] flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-[var(--primary-glow)]">
                     {user.first_name.charAt(0)}{user.last_name.charAt(0)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-white font-medium text-sm truncate">
-                      {user.first_name} {user.last_name}
+                      {user.first_name}
                     </div>
                     <div className="text-xs text-[var(--text-muted)] truncate">
                       {user.email}
@@ -276,14 +282,16 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   onClick={handleLinkClick}
                   className={`
                     flex items-center gap-4 px-4 py-3 rounded-xl
-                    transition-all duration-200
+                    transition-all duration-300 group
                     ${isActive('/settings') 
-                      ? 'bg-gradient-to-r from-violet-500/20 to-purple-600/20 text-white border border-violet-500/30' 
+                      ? 'bg-[var(--bg-secondary)] text-white'
                       : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-white'
                     }
                   `}
                 >
-                  {Icons.settings}
+                  <div className={`${isActive('/settings') ? 'text-[var(--primary-light)]' : 'text-[var(--text-muted)] group-hover:text-white transition-colors'}`}>
+                    {Icons.settings}
+                  </div>
                   <span className="font-medium">Paramètres</span>
                 </Link>
 
@@ -293,9 +301,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     logout();
                     handleLinkClick();
                   }}
-                  className="flex items-center gap-4 px-4 py-3 rounded-xl text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-white transition-all duration-200"
+                  className="flex items-center gap-4 px-4 py-3 rounded-xl text-[var(--text-secondary)] hover:bg-red-500/10 hover:text-red-400 transition-all duration-300 group w-full text-left"
                 >
-                  {Icons.logout}
+                  <div className="text-[var(--text-muted)] group-hover:text-red-400 transition-colors">
+                    {Icons.logout}
+                  </div>
                   <span className="font-medium">Déconnexion</span>
                 </button>
               </div>
@@ -305,20 +315,20 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           {/* Login/Register for non-authenticated users */}
           {!isAuthenticated && (
             <div className="mt-auto pt-8 border-t border-[var(--border-color)]">
-              <div className="flex flex-col gap-3">
-                <Link
-                  href="/login"
-                  onClick={handleLinkClick}
-                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-white transition-all duration-200"
-                >
-                  <span className="font-medium">Connexion</span>
-                </Link>
+              <div className="flex flex-col gap-4">
                 <Link
                   href="/register"
                   onClick={handleLinkClick}
-                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-medium hover:opacity-90 transition-opacity"
+                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--primary-dark)] text-white font-medium hover:shadow-lg hover:shadow-[var(--primary-glow)] transition-all duration-300 hover:-translate-y-0.5"
                 >
-                  <span>Créer un compte</span>
+                  <span>Commencer gratuitement</span>
+                </Link>
+                <Link
+                  href="/login"
+                  onClick={handleLinkClick}
+                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-white transition-all duration-300 border border-transparent hover:border-[var(--border-color)]"
+                >
+                  <span className="font-medium">Se connecter</span>
                 </Link>
               </div>
             </div>

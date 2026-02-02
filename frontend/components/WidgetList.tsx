@@ -138,19 +138,19 @@ export default function WidgetList({ isVisible }: WidgetListProps) {
   if (!isVisible) return null;
 
   return (
-    <div className="flex flex-col gap-6 mt-12">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12">
       {widgets.map((widget) => (
         <Link
           key={widget.id}
           href={widget.status === 'ready' ? widget.href : '#'}
           className={`
-            block group
+            block group h-full
             ${widget.status !== 'ready' ? 'cursor-not-allowed' : ''}
           `}
         >
           <div
             className={`
-              relative rounded-3xl overflow-hidden
+              relative rounded-3xl overflow-hidden h-full
               bg-[var(--bg-card)] border border-[var(--border-color)]
               transition-all duration-300
               ${widget.status === 'ready' 
@@ -158,340 +158,49 @@ export default function WidgetList({ isVisible }: WidgetListProps) {
                 : 'opacity-40'
               }
             `}
-            style={{ padding: '40px 48px' }}
+            style={{ padding: '32px' }}
           >
             {/* Gradient Background */}
-            <div className={`absolute inset-0 bg-gradient-to-br ${widget.color} opacity-5`} />
+            <div className={`absolute inset-0 bg-gradient-to-br ${widget.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
             
-            {/* Content */}
-            <div className="relative z-10">
-              <div className="flex items-start gap-6 mb-6">
-                {/* Icon */}
+            {/* Content Wrapper */}
+            <div className="relative z-10 flex gap-6">
+              {/* Icon Column */}
+              <div className="flex-shrink-0">
                 <div className={`
-                  w-20 h-20 rounded-2xl bg-gradient-to-br ${widget.color}
+                  w-16 h-16 rounded-2xl bg-gradient-to-br ${widget.color}
                   flex items-center justify-center text-white
-                  shadow-lg flex-shrink-0
+                  shadow-lg
                   transition-transform duration-300
-                  ${widget.status === 'ready' ? 'group-hover:scale-110' : ''}
+                  ${widget.status === 'ready' ? 'group-hover:scale-110 group-hover:rotate-3' : ''}
                 `}>
                   {WidgetIcons[widget.icon as keyof typeof WidgetIcons]}
                 </div>
-
-                {/* Text Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-3">
-                    <h3 className="text-3xl font-bold text-white">
-                      {widget.title}
-                    </h3>
-                    {widget.status === 'coming' && (
-                      <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 text-xs font-semibold">
-                        Bientôt
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-lg text-[var(--text-muted)] mb-3">
-                    {widget.subtitle}
-                  </p>
-                  <p className="text-base text-[var(--text-secondary)]">
-                    {widget.description}
-                  </p>
-                </div>
-
-                {/* Arrow */}
-                {widget.status === 'ready' && (
-                  <div className={`
-                    w-12 h-12 rounded-full
-                    bg-[var(--bg-secondary)] flex items-center justify-center
-                    transition-all duration-300 flex-shrink-0
-                    group-hover:bg-gradient-to-br ${widget.color}
-                  `}>
-                    <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                )}
               </div>
 
-              {/* Preview/Overview Section */}
-              <div style={{ height: '200px', position: 'relative', marginTop: '16px' }}>
-                {widget.status === 'ready' && (
-                  <>
-                    {widget.id === 1 && (
-                      <div className="flex items-center justify-center h-full">
-                        <div className="relative w-40 h-40">
-                          <svg className="transform -rotate-90 w-40 h-40">
-                            <circle
-                              cx="80"
-                              cy="80"
-                              r="70"
-                              stroke="rgba(255,255,255,0.1)"
-                              strokeWidth="10"
-                              fill="none"
-                            />
-                            <circle
-                              cx="80"
-                              cy="80"
-                              r="70"
-                              stroke="url(#gradient1-list)"
-                              strokeWidth="10"
-                              fill="none"
-                              strokeDasharray={`${2 * Math.PI * 70}`}
-                              strokeDashoffset={`${2 * Math.PI * 70 * 0.3}`}
-                              strokeLinecap="round"
-                            />
-                            <defs>
-                              <linearGradient id="gradient1-list" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" stopColor="#8b5cf6" />
-                                <stop offset="100%" stopColor="#9333ea" />
-                              </linearGradient>
-                            </defs>
-                          </svg>
-                          <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className="text-4xl font-bold text-white">72</span>
-                            <span className="text-sm text-[var(--text-muted)]">Score</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    {widget.id === 2 && (
-                      <div className="h-full flex items-center justify-center px-4 relative">
-                        <svg width="100%" height="100%" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid meet">
-                          <defs>
-                            <linearGradient id="lineGradient2-list" x1="0%" y1="0%" x2="100%" y2="0%">
-                              <stop offset="0%" stopColor="#3b82f6" />
-                              <stop offset="100%" stopColor="#22d3ee" />
-                            </linearGradient>
-                          </defs>
-                          <line x1="40" y1="160" x2="360" y2="160" stroke="rgba(255,255,255,0.2)" strokeWidth="2" />
-                          <line x1="40" y1="40" x2="40" y2="160" stroke="rgba(255,255,255,0.2)" strokeWidth="2" />
-                          <polyline
-                            points="60,140 120,110 180,90 240,70 300,50"
-                            fill="none"
-                            stroke="url(#lineGradient2-list)"
-                            strokeWidth="4"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                          {[
-                            { x: 60, y: 140 },
-                            { x: 120, y: 110 },
-                            { x: 180, y: 90 },
-                            { x: 240, y: 70 },
-                            { x: 300, y: 50 }
-                          ].map((point, i) => (
-                            <circle
-                              key={i}
-                              cx={point.x}
-                              cy={point.y}
-                              r="6"
-                              fill="#3b82f6"
-                              stroke="rgba(255,255,255,0.5)"
-                              strokeWidth="2"
-                            />
-                          ))}
-                          {[2020, 2021, 2022, 2023, 2024].map((year, i) => (
-                            <text
-                              key={year}
-                              x={60 + (i * 60)}
-                              y="180"
-                              fontSize="12"
-                              fill="rgba(255,255,255,0.6)"
-                              textAnchor="middle"
-                              fontWeight="500"
-                            >
-                              {year}
-                            </text>
-                          ))}
-                        </svg>
-                      </div>
-                    )}
-                    {widget.id === 3 && (
-                      <div className="h-full flex flex-col justify-center gap-4 px-4">
-                        {[
-                          { label: 'Studio', value: 35, color: '#10b981' },
-                          { label: '2p', value: 55, color: '#14b8a6' },
-                          { label: '3p', value: 75, color: '#06b6d4' },
-                          { label: '4p+', value: 90, color: '#0891b2' }
-                        ].map((item, i) => (
-                          <div key={item.label} className="flex items-center gap-4">
-                            <div className="text-sm text-[var(--text-muted)] font-medium" style={{ minWidth: '60px' }}>
-                              {item.label}
-                            </div>
-                            <div className="flex-1 relative" style={{ height: '28px' }}>
-                              <div
-                                className="h-full rounded"
-                                style={{
-                                  width: `${item.value}%`,
-                                  background: `linear-gradient(to right, ${item.color}, ${item.color}cc)`,
-                                  minWidth: '20px',
-                                  borderRadius: '6px'
-                                }}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {widget.id === 4 && (
-                      <div className="h-full rounded-2xl overflow-hidden bg-[var(--bg-secondary)] relative flex items-center justify-center">
-                        <svg width="100%" height="100%" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet" style={{ maxHeight: '200px' }}>
-                          <defs>
-                            <linearGradient id="mapGradient-list" x1="0%" y1="0%" x2="100%" y2="100%">
-                              <stop offset="0%" stopColor="#1a1a24" />
-                              <stop offset="100%" stopColor="#12121a" />
-                            </linearGradient>
-                          </defs>
-                          <polygon
-                            points="100,30 170,70 170,130 100,170 30,130 30,70"
-                            fill="url(#mapGradient-list)"
-                            stroke="rgba(255,255,255,0.3)"
-                            strokeWidth="2.5"
-                          />
-                          {[
-                            { x: 80, y: 60, color: '#10b981' },
-                            { x: 120, y: 60, color: '#3b82f6' },
-                            { x: 100, y: 80, color: '#10b981' },
-                            { x: 70, y: 90, color: '#f59e0b' },
-                            { x: 130, y: 90, color: '#3b82f6' },
-                            { x: 90, y: 110, color: '#10b981' },
-                            { x: 110, y: 110, color: '#ef4444' },
-                            { x: 100, y: 130, color: '#f59e0b' },
-                            { x: 80, y: 140, color: '#3b82f6' },
-                            { x: 120, y: 140, color: '#10b981' },
-                          ].map((point, i) => (
-                            <circle
-                              key={i}
-                              cx={point.x}
-                              cy={point.y}
-                              r="6"
-                              fill={point.color}
-                              opacity="0.9"
-                              stroke="rgba(255,255,255,0.4)"
-                              strokeWidth="2"
-                            />
-                          ))}
-                        </svg>
-                      </div>
-                    )}
-                    {widget.id === 5 && (
-                      <div className="h-full rounded-2xl overflow-hidden bg-[var(--bg-secondary)] relative flex items-center justify-center">
-                        <svg width="100%" height="100%" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet" style={{ maxHeight: '200px' }}>
-                          <circle
-                            cx="100"
-                            cy="100"
-                            r="60"
-                            fill="none"
-                            stroke="rgba(59, 130, 246, 0.3)"
-                            strokeWidth="2"
-                            strokeDasharray="5,5"
-                          />
-                          <circle
-                            cx="100"
-                            cy="100"
-                            r="10"
-                            fill="#ef4444"
-                            stroke="white"
-                            strokeWidth="2"
-                          />
-                          {[
-                            { x: 100, y: 50, color: '#3b82f6' },
-                            { x: 140, y: 70, color: '#3b82f6' },
-                            { x: 160, y: 100, color: '#3b82f6' },
-                            { x: 140, y: 130, color: '#3b82f6' },
-                            { x: 100, y: 150, color: '#3b82f6' },
-                            { x: 60, y: 130, color: '#3b82f6' },
-                            { x: 40, y: 100, color: '#3b82f6' },
-                            { x: 60, y: 70, color: '#3b82f6' }
-                          ].map((point, i) => (
-                            <circle
-                              key={i}
-                              cx={point.x}
-                              cy={point.y}
-                              r="6"
-                              fill={point.color}
-                              opacity="0.9"
-                              stroke="rgba(255,255,255,0.4)"
-                              strokeWidth="2"
-                            />
-                          ))}
-                        </svg>
-                      </div>
-                    )}
-                    {widget.id === 6 && (
-                      <div className="h-full flex items-center justify-center gap-8">
-                        <div className="text-center">
-                          <div className="text-5xl font-bold text-emerald-400 mb-2">12%</div>
-                          <div className="text-sm text-[var(--text-muted)]">Vacance</div>
-                        </div>
-                        <div className="h-20 w-px bg-[var(--border-color)]" />
-                        <div className="text-center">
-                          <div className="text-5xl font-bold text-rose-400 mb-2">8.2%</div>
-                          <div className="text-sm text-[var(--text-muted)]">Tension</div>
-                        </div>
-                      </div>
-                    )}
-                    {widget.id === 7 && (
-                      <div className="h-full flex flex-col items-center justify-center">
-                        <div className="relative w-48 h-24 overflow-hidden">
-                          <svg className="w-full h-full" viewBox="0 0 120 70">
-                            <path
-                              d="M 10 60 A 50 50 0 0 1 110 60"
-                              fill="none"
-                              stroke="rgba(255,255,255,0.1)"
-                              strokeWidth="10"
-                              strokeLinecap="round"
-                            />
-                            <path
-                              d="M 10 60 A 50 50 0 0 1 85 15"
-                              fill="none"
-                              stroke="url(#gaugeGradient7-list)"
-                              strokeWidth="10"
-                              strokeLinecap="round"
-                            />
-                            <defs>
-                              <linearGradient id="gaugeGradient7-list" x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" stopColor="#10b981" />
-                                <stop offset="50%" stopColor="#3b82f6" />
-                                <stop offset="100%" stopColor="#8b5cf6" />
-                              </linearGradient>
-                            </defs>
-                          </svg>
-                          <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2">
-                            <span className="text-4xl font-bold text-white">5.8</span>
-                            <span className="text-xl text-[var(--text-muted)]">%</span>
-                          </div>
-                        </div>
-                        <div className="text-base text-[var(--text-muted)] mt-4">Rendement requis</div>
-                      </div>
-                    )}
-                    {widget.id === 8 && (
-                      <div className="h-full flex flex-col items-center justify-center px-4">
-                        <div className="w-full max-w-[300px]">
-                          {[
-                            { code: '23', pct: 85, color: '#10b981' },
-                            { code: '58', pct: 75, color: '#10b981' },
-                            { code: '36', pct: 65, color: '#3b82f6' },
-                            { code: '03', pct: 55, color: '#3b82f6' },
-                            { code: '18', pct: 45, color: '#f59e0b' },
-                          ].map((dept, i) => (
-                            <div key={dept.code} className="flex items-center gap-3 mb-3">
-                              <span className="text-sm text-[var(--text-muted)] w-8">{dept.code}</span>
-                              <div className="flex-1 h-6 bg-[var(--bg-secondary)] rounded overflow-hidden">
-                                <div
-                                  className="h-full rounded"
-                                  style={{
-                                    width: `${dept.pct}%`,
-                                    backgroundColor: dept.color,
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
+              {/* Text Column */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 mb-1">
+                  <h3 className="text-xl font-bold text-white group-hover:text-[var(--primary-light)] transition-colors">
+                    {widget.title}
+                  </h3>
+                </div>
+
+                <p className="text-sm text-[var(--text-muted)] font-medium mb-3">
+                  {widget.subtitle}
+                </p>
+
+                <p className="text-base text-[var(--text-secondary)] line-clamp-2 mb-6">
+                  {widget.description}
+                </p>
+
+                {/* Arrow */}
+                <div className="flex items-center text-sm font-medium text-[var(--text-muted)] group-hover:text-white transition-colors gap-2">
+                  Découvrir
+                  <svg className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </div>
               </div>
             </div>
           </div>

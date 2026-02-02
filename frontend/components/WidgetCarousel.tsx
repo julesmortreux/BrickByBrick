@@ -145,9 +145,12 @@ export default function WidgetCarousel() {
     return 3; // Desktop
   };
 
-  const [itemsPerView, setItemsPerView] = useState(getItemsPerView());
+  const [itemsPerView, setItemsPerView] = useState(3);
 
   useEffect(() => {
+    // Initial calculation
+    setItemsPerView(getItemsPerView());
+
     const handleResize = () => {
       setItemsPerView(getItemsPerView());
     };
@@ -194,8 +197,6 @@ export default function WidgetCarousel() {
     setCurrentIndex(Math.min(index, maxIndex));
   };
 
-  const visibleWidgets = widgets.slice(currentIndex, currentIndex + itemsPerView);
-
   return (
     <div 
       className="relative"
@@ -203,9 +204,9 @@ export default function WidgetCarousel() {
       onMouseLeave={() => setIsPaused(false)}
     >
       {/* Carousel Container */}
-      <div className="relative overflow-hidden rounded-3xl">
+      <div className="relative overflow-hidden rounded-[32px] p-2 -m-2">
         <div
-          className="flex transition-transform duration-500 ease-in-out"
+          className="flex transition-transform duration-700 ease-out"
           style={{
             transform: `translateX(-${currentIndex * (100 / itemsPerView)}%)`,
           }}
@@ -218,350 +219,192 @@ export default function WidgetCarousel() {
             >
               <Link
                 href={widget.status === 'ready' ? widget.href : '#'}
-                className={`block ${widget.status !== 'ready' ? 'cursor-not-allowed' : ''}`}
+                className={`block h-full ${widget.status !== 'ready' ? 'cursor-not-allowed' : ''}`}
               >
                 <div
                   className={`
-                    relative rounded-3xl overflow-hidden
+                    group relative rounded-3xl overflow-hidden h-full
                     bg-[var(--bg-card)] border border-[var(--border-color)]
                     transition-all duration-300
                     ${widget.status === 'ready' 
-                      ? 'hover:border-[var(--border-hover)] hover:-translate-y-2 hover:shadow-2xl hover:shadow-black/30' 
+                      ? 'hover:border-[var(--border-hover)] hover:-translate-y-2 hover:shadow-2xl hover:shadow-black/40'
                       : 'opacity-40'
                     }
                   `}
-                  style={{ minHeight: '480px', padding: '32px' }}
+                  style={{ minHeight: '480px' }}
                 >
                   {/* Gradient Background */}
-                  <div className={`absolute inset-0 bg-gradient-to-br ${widget.color} opacity-5`} />
+                  <div className={`absolute inset-0 bg-gradient-to-br ${widget.color} opacity-0 group-hover:opacity-5 transition-opacity duration-500`} />
                   
-                  {/* Content */}
-                  <div className="relative z-10 h-full flex flex-col">
+                  {/* Top Highlight Line */}
+                  <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${widget.color} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+
+                  <div className="relative z-10 flex flex-col h-full p-8">
                     {/* Header */}
-                    <div className="flex items-start justify-between mb-6">
+                    <div className="flex items-start justify-between mb-8">
                       <div className="flex items-center gap-4">
                         <div className={`
                           w-16 h-16 rounded-2xl bg-gradient-to-br ${widget.color}
                           flex items-center justify-center text-white
-                          shadow-lg
-                          transition-transform duration-300
+                          shadow-lg shadow-black/20
+                          transition-all duration-500
+                          group-hover:scale-110 group-hover:rotate-3
                         `}>
                           {WidgetIcons[widget.icon as keyof typeof WidgetIcons]}
                         </div>
                         <div>
-                          <h3 className="text-2xl font-bold text-white mb-1">
+                          <h3 className="text-xl font-bold text-white mb-1 group-hover:text-[var(--primary-light)] transition-colors">
                             {widget.title}
                           </h3>
-                          <p className="text-sm text-[var(--text-muted)]">
+                          <p className="text-sm text-[var(--text-muted)] group-hover:text-[var(--text-secondary)] transition-colors">
                             {widget.subtitle}
                           </p>
                         </div>
                       </div>
                     </div>
 
-                    {/* Description */}
-                    <p className="text-base text-[var(--text-secondary)] mb-6 flex-grow">
-                      {widget.description}
-                    </p>
-
-                    {/* Preview/Overview Section */}
-                    <div className="mb-6" style={{ height: '180px', position: 'relative' }}>
-                      {widget.status === 'ready' && (
-                        <>
-                          {widget.id === 1 && (
-                            <div className="flex items-center justify-center h-full">
+                    {/* Preview Section - SVG Visualizations */}
+                    <div className="flex-1 flex items-center justify-center mb-8 relative">
+                      <div className="w-full h-40 relative flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
+                        {widget.status === 'ready' && (
+                          <>
+                            {widget.id === 1 && ( // Faisabilité
                               <div className="relative w-32 h-32">
-                                <svg className="transform -rotate-90 w-32 h-32">
-                                  <circle
-                                    cx="64"
-                                    cy="64"
-                                    r="56"
-                                    stroke="rgba(255,255,255,0.1)"
-                                    strokeWidth="8"
-                                    fill="none"
-                                  />
-                                  <circle
-                                    cx="64"
-                                    cy="64"
-                                    r="56"
-                                    stroke="url(#gradient1)"
-                                    strokeWidth="8"
-                                    fill="none"
-                                    strokeDasharray={`${2 * Math.PI * 56}`}
-                                    strokeDashoffset={`${2 * Math.PI * 56 * 0.3}`}
-                                    strokeLinecap="round"
-                                  />
+                                <svg className="transform -rotate-90 w-32 h-32 drop-shadow-lg">
+                                  <circle cx="64" cy="64" r="56" stroke="rgba(255,255,255,0.05)" strokeWidth="8" fill="none" />
+                                  <circle cx="64" cy="64" r="56" stroke="url(#g1)" strokeWidth="8" fill="none"
+                                    strokeDasharray={`${2 * Math.PI * 56}`} strokeDashoffset={`${2 * Math.PI * 56 * 0.25}`} strokeLinecap="round" />
                                   <defs>
-                                    <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="0%">
                                       <stop offset="0%" stopColor="#8b5cf6" />
-                                      <stop offset="100%" stopColor="#9333ea" />
+                                      <stop offset="100%" stopColor="#c084fc" />
                                     </linearGradient>
                                   </defs>
                                 </svg>
                                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                  <span className="text-3xl font-bold text-white">72</span>
+                                  <span className="text-3xl font-bold text-white">75</span>
                                   <span className="text-xs text-[var(--text-muted)]">Score</span>
                                 </div>
                               </div>
-                            </div>
-                          )}
-                          {widget.id === 2 && (
-                            <div className="h-full flex items-center justify-center px-4 relative">
-                              <svg width="100%" height="100%" viewBox="0 0 300 150" preserveAspectRatio="xMidYMid meet">
-                                <defs>
-                                  <linearGradient id="lineGradient2" x1="0%" y1="0%" x2="100%" y2="0%">
-                                    <stop offset="0%" stopColor="#3b82f6" />
-                                    <stop offset="100%" stopColor="#22d3ee" />
-                                  </linearGradient>
-                                </defs>
-                                <line x1="30" y1="120" x2="270" y2="120" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
-                                <line x1="30" y1="30" x2="30" y2="120" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
-                                <polyline
-                                  points="50,100 90,85 130,70 170,60 210,50"
-                                  fill="none"
-                                  stroke="url(#lineGradient2)"
-                                  strokeWidth="3"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                                {[
-                                  { x: 50, y: 100 },
-                                  { x: 90, y: 85 },
-                                  { x: 130, y: 70 },
-                                  { x: 170, y: 60 },
-                                  { x: 210, y: 50 }
-                                ].map((point, i) => (
-                                  <circle
-                                    key={i}
-                                    cx={point.x}
-                                    cy={point.y}
-                                    r="5"
-                                    fill="#3b82f6"
-                                    stroke="rgba(255,255,255,0.5)"
-                                    strokeWidth="2"
-                                  />
-                                ))}
-                                {[2020, 2021, 2022, 2023, 2024].map((year, i) => (
-                                  <text
-                                    key={year}
-                                    x={50 + (i * 40)}
-                                    y="135"
-                                    fontSize="11"
-                                    fill="rgba(255,255,255,0.6)"
-                                    textAnchor="middle"
-                                    fontWeight="500"
-                                  >
-                                    {year.toString().slice(-2)}
-                                  </text>
-                                ))}
-                              </svg>
-                            </div>
-                          )}
-                          {widget.id === 3 && (
-                            <div className="h-full flex flex-col justify-center gap-3 px-4">
-                              {[
-                                { label: 'Studio', value: 35, color: '#10b981' },
-                                { label: '2p', value: 55, color: '#14b8a6' },
-                                { label: '3p', value: 75, color: '#06b6d4' },
-                                { label: '4p+', value: 90, color: '#0891b2' }
-                              ].map((item, i) => (
-                                <div key={item.label} className="flex items-center gap-3">
-                                  <div className="text-xs text-[var(--text-muted)] font-medium" style={{ minWidth: '45px' }}>
-                                    {item.label}
-                                  </div>
-                                  <div className="flex-1 relative" style={{ height: '24px' }}>
-                                    <div
-                                      className="h-full rounded"
-                                      style={{
-                                        width: `${item.value}%`,
-                                        background: `linear-gradient(to right, ${item.color}, ${item.color}cc)`,
-                                        minWidth: '20px',
-                                        borderRadius: '4px'
-                                      }}
-                                    />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {widget.id === 4 && (
-                            <div className="h-full rounded-2xl overflow-hidden bg-[var(--bg-secondary)] relative flex items-center justify-center">
-                              <svg width="100%" height="100%" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet" style={{ maxHeight: '180px' }}>
-                                <defs>
-                                  <linearGradient id="mapGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                    <stop offset="0%" stopColor="#1a1a24" />
-                                    <stop offset="100%" stopColor="#12121a" />
-                                  </linearGradient>
-                                </defs>
-                                <polygon
-                                  points="100,30 170,70 170,130 100,170 30,130 30,70"
-                                  fill="url(#mapGradient)"
-                                  stroke="rgba(255,255,255,0.3)"
-                                  strokeWidth="2.5"
-                                />
-                                {[
-                                  { x: 80, y: 60, color: '#10b981' },
-                                  { x: 120, y: 60, color: '#3b82f6' },
-                                  { x: 100, y: 80, color: '#10b981' },
-                                  { x: 70, y: 90, color: '#f59e0b' },
-                                  { x: 130, y: 90, color: '#3b82f6' },
-                                  { x: 90, y: 110, color: '#10b981' },
-                                  { x: 110, y: 110, color: '#ef4444' },
-                                  { x: 100, y: 130, color: '#f59e0b' },
-                                  { x: 80, y: 140, color: '#3b82f6' },
-                                  { x: 120, y: 140, color: '#10b981' },
-                                ].map((point, i) => (
-                                  <circle
-                                    key={i}
-                                    cx={point.x}
-                                    cy={point.y}
-                                    r="5"
-                                    fill={point.color}
-                                    opacity="0.9"
-                                    stroke="rgba(255,255,255,0.4)"
-                                    strokeWidth="1.5"
-                                  />
-                                ))}
-                              </svg>
-                            </div>
-                          )}
-                          {widget.id === 5 && (
-                            <div className="h-full rounded-2xl overflow-hidden bg-[var(--bg-secondary)] relative flex items-center justify-center">
-                              <svg width="100%" height="100%" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet" style={{ maxHeight: '180px' }}>
-                                <circle
-                                  cx="100"
-                                  cy="100"
-                                  r="60"
-                                  fill="none"
-                                  stroke="rgba(59, 130, 246, 0.3)"
-                                  strokeWidth="2"
-                                  strokeDasharray="5,5"
-                                />
-                                <circle
-                                  cx="100"
-                                  cy="100"
-                                  r="8"
-                                  fill="#ef4444"
-                                  stroke="white"
-                                  strokeWidth="2"
-                                />
-                                {[
-                                  { x: 100, y: 50, color: '#3b82f6' },
-                                  { x: 140, y: 70, color: '#3b82f6' },
-                                  { x: 160, y: 100, color: '#3b82f6' },
-                                  { x: 140, y: 130, color: '#3b82f6' },
-                                  { x: 100, y: 150, color: '#3b82f6' },
-                                  { x: 60, y: 130, color: '#3b82f6' },
-                                  { x: 40, y: 100, color: '#3b82f6' },
-                                  { x: 60, y: 70, color: '#3b82f6' }
-                                ].map((point, i) => (
-                                  <circle
-                                    key={i}
-                                    cx={point.x}
-                                    cy={point.y}
-                                    r="5"
-                                    fill={point.color}
-                                    opacity="0.9"
-                                    stroke="rgba(255,255,255,0.4)"
-                                    strokeWidth="1.5"
-                                  />
-                                ))}
-                              </svg>
-                            </div>
-                          )}
-                          {widget.id === 6 && (
-                            <div className="h-full flex items-center justify-center gap-6">
-                              <div className="text-center">
-                                <div className="text-4xl font-bold text-emerald-400 mb-1">12%</div>
-                                <div className="text-xs text-[var(--text-muted)]">Vacance</div>
-                              </div>
-                              <div className="h-16 w-px bg-[var(--border-color)]" />
-                              <div className="text-center">
-                                <div className="text-4xl font-bold text-rose-400 mb-1">8.2%</div>
-                                <div className="text-xs text-[var(--text-muted)]">Tension</div>
-                              </div>
-                            </div>
-                          )}
-                          {widget.id === 7 && (
-                            <div className="h-full flex flex-col items-center justify-center">
-                              <div className="relative w-36 h-20 overflow-hidden">
-                                <svg className="w-full h-full" viewBox="0 0 120 70">
-                                  <path
-                                    d="M 10 60 A 50 50 0 0 1 110 60"
-                                    fill="none"
-                                    stroke="rgba(255,255,255,0.1)"
-                                    strokeWidth="10"
-                                    strokeLinecap="round"
-                                  />
-                                  <path
-                                    d="M 10 60 A 50 50 0 0 1 85 15"
-                                    fill="none"
-                                    stroke="url(#gaugeGradient7)"
-                                    strokeWidth="10"
-                                    strokeLinecap="round"
-                                  />
+                            )}
+                            {widget.id === 2 && ( // DVF
+                              <div className="w-full px-4 h-full flex items-center">
+                                <svg width="100%" height="100" viewBox="0 0 300 100" className="drop-shadow-lg">
+                                  <path d="M10,80 Q70,70 140,50 T290,20" fill="none" stroke="url(#g2)" strokeWidth="4" strokeLinecap="round" />
+                                  <circle cx="290" cy="20" r="6" fill="#22d3ee" stroke="white" strokeWidth="2" />
                                   <defs>
-                                    <linearGradient id="gaugeGradient7" x1="0%" y1="0%" x2="100%" y2="0%">
-                                      <stop offset="0%" stopColor="#10b981" />
-                                      <stop offset="50%" stopColor="#3b82f6" />
-                                      <stop offset="100%" stopColor="#8b5cf6" />
+                                    <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="0%">
+                                      <stop offset="0%" stopColor="#3b82f6" />
+                                      <stop offset="100%" stopColor="#22d3ee" />
                                     </linearGradient>
                                   </defs>
                                 </svg>
-                                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2">
-                                  <span className="text-3xl font-bold text-white">5.8</span>
-                                  <span className="text-lg text-[var(--text-muted)]">%</span>
-                                </div>
                               </div>
-                              <div className="text-sm text-[var(--text-muted)] mt-4">Rendement requis</div>
-                            </div>
-                          )}
-                          {widget.id === 8 && (
-                            <div className="h-full flex flex-col items-center justify-center px-4">
-                              <div className="w-full max-w-[200px]">
+                            )}
+                            {widget.id === 3 && ( // Taille
+                              <div className="w-full px-6 flex flex-col gap-3">
                                 {[
-                                  { code: '23', pct: 85, color: '#10b981' },
-                                  { code: '58', pct: 75, color: '#10b981' },
-                                  { code: '36', pct: 65, color: '#3b82f6' },
-                                  { code: '03', pct: 55, color: '#3b82f6' },
-                                  { code: '18', pct: 45, color: '#f59e0b' },
-                                ].map((dept, i) => (
-                                  <div key={dept.code} className="flex items-center gap-2 mb-2">
-                                    <span className="text-xs text-[var(--text-muted)] w-6">{dept.code}</span>
-                                    <div className="flex-1 h-5 bg-[var(--bg-secondary)] rounded overflow-hidden">
-                                      <div
-                                        className="h-full rounded"
-                                        style={{
-                                          width: `${dept.pct}%`,
-                                          backgroundColor: dept.color,
-                                        }}
-                                      />
+                                  { l: 'T2', w: '70%', c: '#10b981' },
+                                  { l: 'T3', w: '45%', c: '#14b8a6' },
+                                  { l: 'Studio', w: '30%', c: '#06b6d4' }
+                                ].map((i, idx) => (
+                                  <div key={idx} className="flex items-center gap-3">
+                                    <span className="text-xs text-[var(--text-muted)] w-8">{i.l}</span>
+                                    <div className="h-2 rounded-full flex-1 bg-[var(--bg-secondary)] overflow-hidden">
+                                      <div className="h-full rounded-full" style={{ width: i.w, backgroundColor: i.c }} />
                                     </div>
                                   </div>
                                 ))}
                               </div>
-                            </div>
-                          )}
-                        </>
-                      )}
+                            )}
+                            {widget.id === 4 && ( // Map
+                                <div className="relative">
+                                    <svg viewBox="0 0 100 100" className="w-32 h-32 drop-shadow-lg opacity-80">
+                                        <path d="M50,10 L90,30 L90,70 L50,90 L10,70 L10,30 Z" fill="none" stroke="#f59e0b" strokeWidth="2" />
+                                        <circle cx="50" cy="50" r="4" fill="#f59e0b" />
+                                        <circle cx="50" cy="50" r="20" fill="#f59e0b" fillOpacity="0.2" className="animate-pulse" />
+                                        <circle cx="70" cy="40" r="3" fill="#ffffff" fillOpacity="0.5" />
+                                        <circle cx="30" cy="60" r="3" fill="#ffffff" fillOpacity="0.5" />
+                                    </svg>
+                                </div>
+                            )}
+                            {widget.id === 5 && ( // Proximité
+                                <div className="relative">
+                                    <div className="absolute inset-0 bg-lime-500/20 rounded-full animate-ping opacity-20"></div>
+                                    <div className="w-24 h-24 rounded-full border-2 border-lime-500/30 flex items-center justify-center bg-lime-500/5 backdrop-blur-sm">
+                                        <svg className="w-10 h-10 text-lime-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            )}
+                            {widget.id === 6 && ( // Tension
+                                <div className="flex gap-4 items-end h-24">
+                                    <div className="w-8 bg-[var(--bg-secondary)] rounded-t-lg h-12 relative group-hover:h-16 transition-all duration-500">
+                                        <div className="absolute bottom-0 w-full h-full bg-gradient-to-t from-rose-500/20 to-rose-500/60 rounded-t-lg"></div>
+                                    </div>
+                                    <div className="w-8 bg-[var(--bg-secondary)] rounded-t-lg h-20 relative group-hover:h-24 transition-all duration-500">
+                                        <div className="absolute bottom-0 w-full h-full bg-gradient-to-t from-rose-500/40 to-rose-500 rounded-t-lg"></div>
+                                    </div>
+                                    <div className="w-8 bg-[var(--bg-secondary)] rounded-t-lg h-16 relative group-hover:h-14 transition-all duration-500">
+                                        <div className="absolute bottom-0 w-full h-full bg-gradient-to-t from-rose-500/20 to-rose-500/60 rounded-t-lg"></div>
+                                    </div>
+                                </div>
+                            )}
+                            {widget.id === 7 && ( // Rendement Requis
+                                <div className="relative w-32 h-32 flex items-center justify-center">
+                                    <svg className="w-full h-full" viewBox="0 0 100 100">
+                                        <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
+                                        <path d="M 50 5 A 45 45 0 1 1 25 82" fill="none" stroke="url(#g7)" strokeWidth="8" strokeLinecap="round" />
+                                        <defs>
+                                            <linearGradient id="g7" x1="0%" y1="0%" x2="100%" y2="100%">
+                                                <stop offset="0%" stopColor="#6366f1" />
+                                                <stop offset="100%" stopColor="#818cf8" />
+                                            </linearGradient>
+                                        </defs>
+                                    </svg>
+                                    <div className="absolute text-2xl font-bold text-indigo-400">6.2%</div>
+                                </div>
+                            )}
+                            {widget.id === 8 && ( // Rendement Dept
+                                <div className="w-full px-6 flex flex-col gap-2">
+                                    {[1, 2, 3].map((i) => (
+                                        <div key={i} className="flex items-center gap-3">
+                                            <div className="w-6 h-6 rounded-md bg-sky-500/20 flex items-center justify-center text-xs text-sky-400 font-bold">{i}</div>
+                                            <div className="flex-1 h-8 bg-[var(--bg-secondary)] rounded-md flex items-center px-3 border border-[var(--border-color)]">
+                                                <div className="h-1.5 rounded-full bg-sky-500" style={{ width: `${80 - i * 15}%`}}></div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Footer */}
-                    {widget.status === 'ready' && (
-                      <div className="flex items-center justify-between mt-auto">
-                        <span className="text-sm font-medium text-[var(--text-secondary)]">En savoir plus</span>
-                        <div className={`
-                          w-10 h-10 rounded-full
-                          bg-[var(--bg-secondary)] flex items-center justify-center
-                          transition-all duration-300
-                          group-hover:bg-gradient-to-br ${widget.color}
-                        `}>
-                          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </div>
+                    {/* Description */}
+                    <p className="text-base text-[var(--text-secondary)] mb-8 line-clamp-2">
+                      {widget.description}
+                    </p>
+
+                    {/* Footer / CTA */}
+                    <div className="mt-auto pt-6 border-t border-[var(--border-color)] flex items-center justify-between group-hover:border-white/10 transition-colors">
+                      <span className="text-sm font-medium text-[var(--text-muted)] group-hover:text-white transition-colors">Explorer</span>
+                      <div className={`
+                        w-10 h-10 rounded-full
+                        bg-[var(--bg-secondary)] border border-[var(--border-color)]
+                        flex items-center justify-center
+                        transition-all duration-300
+                        group-hover:bg-gradient-to-br group-hover:${widget.color} group-hover:border-transparent
+                        group-hover:scale-110
+                      `}>
+                        <svg className="w-5 h-5 text-white transform -rotate-45 group-hover:rotate-0 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
               </Link>
@@ -570,49 +413,43 @@ export default function WidgetCarousel() {
         </div>
       </div>
 
-      {/* Navigation Arrows */}
-      {maxIndex > 0 && (
-        <>
-          <button
-            onClick={goToPrevious}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-center hover:bg-[var(--bg-secondary)] transition-all shadow-lg"
-            aria-label="Précédent"
-          >
-            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <button
-            onClick={goToNext}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-center hover:bg-[var(--bg-secondary)] transition-all shadow-lg"
-            aria-label="Suivant"
-          >
-            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </>
-      )}
+      {/* Navigation Arrows (Custom design) */}
+      <button
+        onClick={goToPrevious}
+        className="absolute -left-4 md:-left-6 top-1/2 -translate-y-1/2 z-20 w-14 h-14 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-white flex items-center justify-center hover:bg-[var(--bg-secondary)] hover:scale-110 transition-all duration-300 shadow-xl shadow-black/20"
+        aria-label="Précédent"
+      >
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+      <button
+        onClick={goToNext}
+        className="absolute -right-4 md:-right-6 top-1/2 -translate-y-1/2 z-20 w-14 h-14 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-white flex items-center justify-center hover:bg-[var(--bg-secondary)] hover:scale-110 transition-all duration-300 shadow-xl shadow-black/20"
+        aria-label="Suivant"
+      >
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
 
       {/* Dots Indicator */}
-      {maxIndex > 0 && (
-        <div className="flex justify-center gap-2 mt-8">
-          {Array.from({ length: maxIndex + 1 }).map((_, index) => (
-            <button
-              key={index}
-              onClick={() => goToSlide(index)}
-              className={`
-                w-2 h-2 rounded-full transition-all duration-300
-                ${currentIndex === index 
-                  ? 'bg-white w-8' 
-                  : 'bg-[var(--text-muted)] hover:bg-[var(--text-secondary)]'
-                }
-              `}
-              aria-label={`Aller au slide ${index + 1}`}
-            />
-          ))}
-        </div>
-      )}
+      <div className="flex justify-center gap-3 mt-12">
+        {Array.from({ length: maxIndex + 1 }).map((_, index) => (
+          <button
+            key={index}
+            onClick={() => goToSlide(index)}
+            className={`
+              h-2 rounded-full transition-all duration-500
+              ${currentIndex === index
+                ? 'w-10 bg-[var(--primary-light)]'
+                : 'w-2 bg-[var(--border-color)] hover:bg-[var(--text-muted)]'
+              }
+            `}
+            aria-label={`Aller au slide ${index + 1}`}
+          />
+        ))}
+      </div>
     </div>
   );
 }
