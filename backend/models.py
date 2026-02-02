@@ -20,6 +20,7 @@ class User(Base):
     # Account status
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)  # For email verification later
+    onboarding_completed = Column(Boolean, default=False)  # Onboarding completion flag
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -72,6 +73,9 @@ class UserPreferences(Base):
     w5_rayon = Column(Integer, default=20)  # Rayon de recherche en km
     w5_ville_domicile = Column(Text, nullable=True)  # JSON string de la ville domicile
     w5_villes_relais = Column(Text, nullable=True)  # JSON string du tableau des villes relais
+    
+    # ========== ONBOARDING: Taux d'intérêt ==========
+    taux_interet = Column(Float, default=3.5)  # Taux d'intérêt annuel (%)
     
     # Timestamps
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())

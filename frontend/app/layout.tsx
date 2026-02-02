@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
+import { OnboardingGuard } from "@/components/OnboardingGuard";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-sans",
@@ -29,7 +30,9 @@ export default function RootLayout({
     <html lang="fr">
       <body className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased`}>
         <AuthProvider>
-          {children}
+          <OnboardingGuard>
+            {children}
+          </OnboardingGuard>
         </AuthProvider>
       </body>
     </html>

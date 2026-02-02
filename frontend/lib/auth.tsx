@@ -12,6 +12,7 @@ interface User {
   email: string;
   first_name: string;
   last_name: string;
+  onboarding_completed?: boolean;
 }
 
 interface AuthContextType {
@@ -22,6 +23,7 @@ interface AuthContextType {
   register: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;
   logout: () => void;
   refreshAuth: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 interface TokenResponse {
@@ -70,7 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Try to use stored user first for fast UI
     if (storedUser) {
       try {
-        setUser(JSON.parse(storedUser));
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
       } catch {
         // Invalid stored user
       }
@@ -86,9 +89,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           'Authorization': `Bearer ${accessToken}`
         },
         signal: controller.signal
+      }).catch((fetchError) => {
+        // Catch fetch errors (network errors) and return null
+        if (fetchError.name === 'AbortError' || fetchError.message?.includes('fetch')) {
+          return null;
+        }
+        throw fetchError;
       });
 
       clearTimeout(timeoutId);
+
+      if (!response) {
+        // Network error - use stored user silently
+        return;
+      }
 
       if (response.ok) {
         const userData = await response.json();
@@ -96,15 +110,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('user', JSON.stringify(userData));
       } else if (response.status === 401) {
         // Try to refresh token
-        await refreshAuth();
+        try {
+          await refreshAuth();
+        } catch (refreshError) {
+          // If refresh fails, keep using stored user
+        }
       } else {
-        logout();
+        // Other error - keep using stored user for now
       }
     } catch (error: any) {
-      if (error.name === 'AbortError') {
-        console.warn('Auth check timeout - using stored user');
-      } else {
-        console.error('Auth check failed:', error);
+      // Network error or timeout - silently use stored user
+      // Don't log network errors as they're expected if backend is down
+      if (error.name !== 'AbortError' && !(error.message?.includes('fetch'))) {
+        console.warn('Auth check failed:', error);
       }
       // Keep user logged in if offline, tokens are still valid
     }
@@ -141,6 +159,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Token refresh failed:', error);
       logout();
+    }
+  };
+
+  const refreshUser = async () => {
+    const accessToken = localStorage.getItem('access_token');
+    if (!accessToken) return;
+
+    try {
+      const response = await fetch(`${API_URL}/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+      }
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
     }
   };
 
@@ -266,7 +305,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
-        refreshAuth
+        refreshAuth,
+        refreshUser
       }}
     >
       {children}

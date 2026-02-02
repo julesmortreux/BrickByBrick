@@ -77,6 +77,7 @@ class UserResponse(BaseModel):
     last_name: str
     is_active: bool
     is_verified: bool
+    onboarding_completed: bool
     created_at: datetime
     
     class Config:
@@ -108,6 +109,8 @@ class UserPreferencesSchema(BaseModel):
     w5_rayon: Optional[int] = 20
     w5_ville_domicile: Optional[str] = None  # JSON string
     w5_villes_relais: Optional[str] = None  # JSON string
+    # Onboarding: Taux d'intérêt
+    taux_interet: Optional[float] = 3.5
 
 
 class RefreshTokenRequest(BaseModel):
@@ -238,7 +241,8 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
             "id": user.id,
             "email": user.email,
             "first_name": user.first_name,
-            "last_name": user.last_name
+            "last_name": user.last_name,
+            "onboarding_completed": user.onboarding_completed
         }
     )
 
@@ -275,7 +279,8 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
             "id": user.id,
             "email": user.email,
             "first_name": user.first_name,
-            "last_name": user.last_name
+            "last_name": user.last_name,
+            "onboarding_completed": user.onboarding_completed
         }
     )
 
@@ -311,7 +316,8 @@ async def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_
             "id": user.id,
             "email": user.email,
             "first_name": user.first_name,
-            "last_name": user.last_name
+            "last_name": user.last_name,
+            "onboarding_completed": user.onboarding_completed
         }
     )
 
@@ -354,7 +360,8 @@ async def get_preferences(
         w3_departement=prefs.w3_departement or "all",
         w5_rayon=getattr(prefs, 'w5_rayon', None) or 20,
         w5_ville_domicile=getattr(prefs, 'w5_ville_domicile', None),
-        w5_villes_relais=getattr(prefs, 'w5_villes_relais', None)
+        w5_villes_relais=getattr(prefs, 'w5_villes_relais', None),
+        taux_interet=getattr(prefs, 'taux_interet', None) or 3.5
     )
 
 
@@ -398,11 +405,26 @@ async def update_preferences(
         prefs.w5_ville_domicile = preferences.w5_ville_domicile
     if hasattr(preferences, 'w5_villes_relais'):
         prefs.w5_villes_relais = preferences.w5_villes_relais
+    # Update taux d'intérêt
+    if hasattr(preferences, 'taux_interet') and preferences.taux_interet is not None:
+        prefs.taux_interet = preferences.taux_interet
     
     db.commit()
     db.refresh(prefs)
     
     return preferences
+
+
+@router.put("/onboarding/complete")
+async def complete_onboarding(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Mark onboarding as completed"""
+    current_user.onboarding_completed = True
+    db.commit()
+    db.refresh(current_user)
+    return {"message": "Onboarding complété", "onboarding_completed": True}
 
 
 @router.delete("/account")
