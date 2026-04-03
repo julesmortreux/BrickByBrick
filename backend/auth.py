@@ -3,9 +3,12 @@ Authentication System - Production Ready
 JWT tokens, password hashing, user management
 """
 import os
+import logging
 import bcrypt
 from datetime import datetime, timedelta
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -199,6 +202,36 @@ async def get_current_user(
         )
     
     return user
+
+
+async def get_optional_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
+    db: Session = Depends(get_db)
+) -> Optional[User]:
+    """Get current user if authenticated, None otherwise (non-blocking)"""
+    if credentials is None:
+        logger.info("[AUTH] Pas de token fourni")
+        return None
+    try:
+        token = credentials.credentials
+        logger.info(f"[AUTH] Token reçu : {token[:20]}...")
+        payload = decode_token(token)
+        if payload.get("type") != "access":
+            logger.warning("[AUTH] Token type != access")
+            return None
+        user_id = payload.get("sub")
+        if not user_id:
+            logger.warning("[AUTH] Pas de user_id dans le token")
+            return None
+        user = db.query(User).filter(User.id == int(user_id)).first()
+        if not user or not user.is_active:
+            logger.warning(f"[AUTH] User {user_id} non trouvé ou inactif")
+            return None
+        logger.info(f"[AUTH] User authentifié : {user.first_name} {user.last_name} (id={user.id})")
+        return user
+    except Exception as e:
+        logger.warning(f"[AUTH] Exception: {e}")
+        return None
 
 
 # ============================================

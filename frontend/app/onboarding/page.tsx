@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import Image from 'next/image';
 import { Slider } from '@/components/ui/slider';
 import { useAuth, authFetch } from '@/lib/auth';
 import { VilleSearch } from '@/components/VilleSearch';
@@ -47,12 +49,63 @@ const Icons = {
   x: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>,
 };
 
+/* ─── Logo (landing style) ─────────────────────────────────────────────── */
+function BrandMark({ height = 34, className = '', priority = false }: { height?: number; className?: string; priority?: boolean }) {
+  const w = Math.round((height * 362) / 394);
+  return (
+    <Image
+      src="/logo-mark.png"
+      alt="BrickByBrick"
+      width={w}
+      height={height}
+      className={`shrink-0 ${className}`}
+      priority={priority}
+      unoptimized
+      style={{ objectFit: 'contain', objectPosition: 'center' }}
+    />
+  );
+}
+
+function Logo() {
+  return (
+    <span className="text-xl font-black tracking-tight leading-none">
+      <span className="text-white">Brick</span>
+      <span className="text-violet-400">By</span>
+      <span className="text-white">Brick</span>
+    </span>
+  );
+}
+
 export default function OnboardingPage() {
   const router = useRouter();
-  const { isAuthenticated, user, refreshUser } = useAuth();
+  const { isAuthenticated, user, refreshUser, logout } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  // Force verticale bordure -> texte (padding/alignement inline pour éviter les effets Tailwind config)
+  const SEGMENTED_BTN_FORCE_STYLE = {
+    minHeight: 44,
+    paddingLeft: 32,
+    paddingRight: 32,
+    paddingTop: 12,
+    paddingBottom: 12,
+    lineHeight: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as const;
+
+  // Force padding interne des "cards" (bordure -> texte) pour éviter les rendus trop serrés
+  const CARD_FORCE_STYLE = {
+    padding: 32,
+  } as const;
+
+  // Variante plus compacte pour les sous-blocs (toggles, petites cartes)
+  const CARD_FORCE_STYLE_SM = {
+    padding: 24,
+  } as const;
 
   // Étape 1: Situation personnelle & Projet
   const [statut, setStatut] = useState<'etudiant' | 'alternant' | 'cdi' | 'cdd' | 'fonctionnaire' | 'auto-entrepreneur' | 'retraite' | 'chomeur'>('etudiant');
@@ -68,7 +121,7 @@ export default function OnboardingPage() {
   const [dureeCredit, setDureeCredit] = useState(20);
 
   // Étape 2: Paramètres crédit
-  const [tauxInteret, setTauxInteret] = useState(3.5);
+  const [tauxInteret, setTauxInteret] = useState(3.1);
   const [inclureCharges, setInclureCharges] = useState(true);
 
   // Étape 3: Localisation
@@ -86,6 +139,13 @@ export default function OnboardingPage() {
       router.push('/login');
     }
   }, [isAuthenticated, prefsLoaded, router]);
+
+  useEffect(() => {
+    const fn = () => setScrolled(window.scrollY > 50);
+    fn();
+    window.addEventListener('scroll', fn);
+    return () => window.removeEventListener('scroll', fn);
+  }, []);
 
   const loadPreferences = async () => {
     try {
@@ -106,7 +166,12 @@ export default function OnboardingPage() {
           if (prefs.apport) setApport(prefs.apport);
           if (prefs.duree_credit) setDureeCredit(prefs.duree_credit);
           // Étape 2
-          if (prefs.taux_interet) setTauxInteret(prefs.taux_interet);
+          // On garde 3.10 par défaut si rien n'est défini côté backend
+          if (prefs.taux_interet !== undefined && prefs.taux_interet !== null) {
+            setTauxInteret(prefs.taux_interet);
+          } else {
+            setTauxInteret(3.1);
+          }
           // Étape 3
           if (prefs.w5_rayon) setRayon(prefs.w5_rayon);
           if (prefs.w5_ville_domicile) {
@@ -291,22 +356,22 @@ export default function OnboardingPage() {
     if (rendementRequis <= 4.5) {
       status = 'excellent';
       statusLabel = 'Excellent';
-      statusEmoji = '🟢';
+      statusEmoji = 'OK';
       message = `Avec ${rendementRequis.toFixed(2)}%, votre projet présente un excellent rendement pour un investissement locatif.`;
     } else if (rendementRequis <= 7.0) {
       status = 'bon';
       statusLabel = 'Bon';
-      statusEmoji = '🔵';
+      statusEmoji = 'OK';
       message = `Un rendement de ${rendementRequis.toFixed(2)}% est dans la moyenne du marché locatif français.`;
     } else if (rendementRequis <= 9.0) {
       status = 'moyen';
       statusLabel = 'Moyen';
-      statusEmoji = '🟡';
+      statusEmoji = 'OK';
       message = `Avec ${rendementRequis.toFixed(2)}%, votre marge est serrée. Privilégiez les zones très tendues.`;
     } else {
       status = 'eleve';
       statusLabel = 'Élevé';
-      statusEmoji = '🔴';
+      statusEmoji = 'OK';
       message = `À ${rendementRequis.toFixed(2)}%, il sera difficile de trouver un locataire acceptant ce loyer.`;
     }
 
@@ -540,8 +605,8 @@ export default function OnboardingPage() {
           }
         }
         
-        // Rediriger vers la page d'accueil
-        router.push('/');
+        // Rediriger vers le tableau de bord
+        router.push('/dashboard');
       } else {
         let errorMessage = 'Erreur lors de la finalisation de l\'onboarding';
         try {
@@ -588,17 +653,61 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)]">
+    <div
+      className="min-h-screen bg-[var(--bg-primary)] text-white relative overflow-x-hidden"
+      style={{ fontFamily: 'var(--font-sans)', fontVariantNumeric: 'tabular-nums' }}
+    >
+      <div className="absolute inset-0 pointer-events-none opacity-30 bg-grid" />
+      <div className="absolute inset-0 pointer-events-none opacity-20 bg-noise" />
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(139,92,246,0.20) 0%, transparent 60%)' }}
+      />
       {/* Navigation Bar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[var(--bg-primary)]/95 backdrop-blur-xl border-b border-[var(--border-color)]">
-        <div className="max-w-7xl mx-auto px-8 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <span className="text-xl font-bold">
-              <span className="text-white">Brick</span>
-              <span className="text-[var(--primary-light)]">ByBrick</span>
-            </span>
-            <span className="text-[var(--text-muted)]">|</span>
-            <span className="text-[var(--text-secondary)] text-sm">Configuration initiale</span>
+      <nav
+        className="fixed top-0 inset-x-0 z-50 transition-all duration-300"
+        style={{
+          background: scrolled ? 'rgba(0,0,0,0.85)' : 'transparent',
+          backdropFilter: scrolled ? 'blur(20px)' : 'none',
+          borderBottom: scrolled ? '1px solid rgba(255,255,255,0.07)' : 'none',
+        }}
+      >
+        <div
+          className="flex items-center justify-between"
+          style={{
+            width: '100%',
+            maxWidth: 1152,
+            marginLeft: 'auto',
+            marginRight: 'auto',
+            paddingLeft: 32,
+            paddingRight: 32,
+            boxSizing: 'border-box',
+            height: 72,
+          }}
+        >
+          <div className="flex items-center gap-10">
+            <Link href="/" className="flex items-center gap-3" style={{ marginLeft: 12 }}>
+              <BrandMark height={34} priority className="leading-none translate-y-[-4px]" />
+              <Logo />
+            </Link>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => logout()}
+              className="inline-flex items-center justify-center text-white font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px"
+              style={{
+                background: 'linear-gradient(135deg,#8b5cf6,#4f46e5)',
+                borderRadius: '40px',
+                boxShadow: '0 4px 20px rgba(139,92,246,0.4)',
+                padding: '14px 32px',
+                fontSize: '1rem',
+                lineHeight: 1,
+              }}
+            >
+              Déconnexion
+            </button>
           </div>
         </div>
       </nav>
@@ -612,44 +721,54 @@ export default function OnboardingPage() {
       </div>
 
       {/* Main Content */}
-      <div style={{ paddingTop: '120px' }}>
-        <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 48px 80px 48px' }}>
+      <div>
+        {/* Spacer: offset fixe sous la navbar + barre de progression */}
+        <div aria-hidden style={{ height: 120 }} />
+        <div style={{ maxWidth: '1152px', margin: '0 auto', padding: '0 32px 80px 32px' }}>
           {/* Header */}
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 text-sm font-medium mb-6">
+          <div className="text-center">
+            <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 text-sm font-medium">
               <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
               Étape {currentStep} sur 3
             </div>
-            <h1 className="text-4xl font-bold text-white mb-4">
+            <div aria-hidden style={{ height: 24 }} />
+            <h1 className="text-4xl font-bold text-white">
               {currentStep === 1 && 'Votre situation et votre projet'}
               {currentStep === 2 && 'Paramètres du crédit'}
               {currentStep === 3 && 'Localisation'}
             </h1>
-            <p className="text-lg text-[var(--text-secondary)]">
+            <div aria-hidden style={{ height: 16 }} />
+            <p className="text-lg text-[var(--text-secondary)]" style={{ margin: 0 }}>
               {currentStep === 1 && 'Renseignez vos informations personnelles et votre projet d\'achat'}
               {currentStep === 2 && 'Configurez les paramètres de votre crédit immobilier'}
               {currentStep === 3 && 'Indiquez votre localisation et vos villes d\'intérêt'}
             </p>
+            <div aria-hidden style={{ height: 56 }} />
           </div>
 
           {/* Step Content */}
-          <div className="bg-[var(--bg-card)] rounded-3xl border border-[var(--border-color)]" style={{ padding: '64px' }}>
+          <div
+            className="glass-card rounded-3xl border border-[var(--border-color)]"
+            style={{ padding: '76px', boxShadow: '0 40px 120px rgba(0,0,0,0.35)' }}
+          >
             {/* Étape 1: Situation & Projet */}
             {currentStep === 1 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '64px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
                 {/* Situation personnelle */}
                 <section>
-                  <div className="flex items-center gap-4 mb-10">
+                  <div className="flex items-center gap-4">
                     <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500/20 to-violet-600/10 flex items-center justify-center text-violet-400">
                       {Icons.user}
                     </div>
                     <h2 className="text-3xl font-semibold text-white">Situation personnelle</h2>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
+                  <div aria-hidden style={{ height: 48 }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '56px' }}>
                     {/* Statut */}
                     <div>
-                      <label className="text-xl font-medium text-[var(--text-secondary)] mb-6 block">Statut professionnel</label>
+                      <label className="text-xl font-medium text-[var(--text-secondary)] mb-0 block">Statut professionnel</label>
+                      <div aria-hidden style={{ height: 16 }} />
                       <select
                         value={statut}
                         onChange={(e) => setStatut(e.target.value as any)}
@@ -669,10 +788,11 @@ export default function OnboardingPage() {
                     {/* Ancienneté */}
                     {statut === 'cdi' && (
                       <div>
-                        <div className="flex justify-between items-baseline mb-3">
+                        <div className="flex justify-between items-baseline mb-0">
                           <label className="text-lg text-[var(--text-secondary)]">Ancienneté (mois)</label>
                           <span className="text-2xl font-bold text-white">{anciennete} mois</span>
                         </div>
+                        <div aria-hidden style={{ height: 12 }} />
                         <div style={{ padding: '0 8px' }}>
                           <Slider value={[anciennete]} onValueChange={(v) => setAnciennete(v[0])} min={0} max={120} step={1} />
                         </div>
@@ -681,34 +801,54 @@ export default function OnboardingPage() {
 
                     {/* Revenu mensuel */}
                     <div>
-                      <div className="flex justify-between items-baseline mb-6">
+                      <div className="flex justify-between items-baseline mb-0">
                         <label className="text-xl font-medium text-[var(--text-secondary)]">Revenu mensuel net</label>
                         <span className="text-4xl font-bold text-white">{revenuMensuel.toLocaleString()} €</span>
                       </div>
+                      <div aria-hidden style={{ height: 12 }} />
                       <div style={{ padding: '0 12px' }}>
                         <Slider value={[revenuMensuel]} onValueChange={(v) => setRevenuMensuel(v[0])} min={0} max={10000} step={50} />
                       </div>
                     </div>
 
                     {/* Co-emprunteur */}
-                    <div className="bg-[var(--bg-secondary)] rounded-2xl p-4">
+                    <div className="bg-[var(--bg-secondary)] rounded-2xl p-6" style={CARD_FORCE_STYLE_SM}>
                       <div className="flex items-center justify-between mb-3">
                         <label className="text-lg text-[var(--text-secondary)]">Co-emprunteur</label>
-                        <button
-                          onClick={() => setCoBorrower(!coBorrower)}
-                          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                            coBorrower ? 'bg-violet-500 text-white' : 'bg-[var(--bg-card)] text-[var(--text-muted)]'
-                          }`}
-                        >
-                          {coBorrower ? 'Oui' : 'Non'}
-                        </button>
+                        <div className="flex items-center gap-2 p-1 rounded-2xl bg-white/5 border border-white/10">
+                          <button
+                            type="button"
+                            onClick={() => setCoBorrower(true)}
+                            className={`flex-1 px-8 py-3.5 rounded-[40px] text-sm font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px ${
+                              coBorrower
+                                ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-[0_4px_20px_rgba(139,92,246,0.4)]'
+                                : 'bg-white/5 text-[var(--text-secondary)] border border-white/10 hover:bg-white/7 hover:border-white/20 hover:text-white shadow-none opacity-100'
+                            }`}
+                            style={SEGMENTED_BTN_FORCE_STYLE}
+                          >
+                            Oui
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCoBorrower(false)}
+                            className={`flex-1 px-8 py-3.5 rounded-[40px] text-sm font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px ${
+                              !coBorrower
+                                ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-[0_4px_20px_rgba(139,92,246,0.4)]'
+                                : 'bg-white/5 text-[var(--text-secondary)] border border-white/10 hover:bg-white/7 hover:border-white/20 hover:text-white shadow-none opacity-100'
+                            }`}
+                            style={SEGMENTED_BTN_FORCE_STYLE}
+                          >
+                            Non
+                          </button>
+                        </div>
                       </div>
                       {coBorrower && (
                         <div className="mt-4">
-                          <div className="flex justify-between items-baseline mb-3">
+                          <div className="flex justify-between items-baseline mb-0">
                             <label className="text-sm text-[var(--text-secondary)]">Revenu co-emprunteur</label>
                             <span className="text-xl font-bold text-white">{revenuCoBorrower.toLocaleString()} €</span>
                           </div>
+                          <div aria-hidden style={{ height: 12 }} />
                           <div style={{ padding: '0 8px' }}>
                             <Slider value={[revenuCoBorrower]} onValueChange={(v) => setRevenuCoBorrower(v[0])} min={0} max={10000} step={50} />
                           </div>
@@ -718,51 +858,75 @@ export default function OnboardingPage() {
 
                     {/* Garant */}
                     <div>
-                      <label className="text-lg text-[var(--text-secondary)] mb-3 block">Garant</label>
+                      <label className="text-lg text-[var(--text-secondary)] mb-0 block">Garant</label>
+                      <div aria-hidden style={{ height: 16 }} />
                       <div className="flex gap-3">
                         <button
                           onClick={() => setGarant('oui')}
-                          className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                          className={`flex-1 px-8 py-3.5 rounded-[40px] text-sm font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px ${
                             garant === 'oui'
-                              ? 'bg-violet-500 text-white shadow-lg shadow-violet-500/30'
-                              : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)]'
+                              ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-[0_4px_20px_rgba(139,92,246,0.4)]'
+                              : 'bg-white/5 text-[var(--text-secondary)] border border-white/10 hover:bg-white/7 hover:border-white/20 hover:text-white shadow-none opacity-100'
                           }`}
+                          style={SEGMENTED_BTN_FORCE_STYLE}
                         >
                           Oui
                         </button>
                         <button
                           onClick={() => setGarant('aucun')}
-                          className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                          className={`flex-1 px-8 py-3.5 rounded-[40px] text-sm font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px ${
                             garant === 'aucun'
-                              ? 'bg-violet-500 text-white shadow-lg shadow-violet-500/30'
-                              : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)]'
+                              ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-[0_4px_20px_rgba(139,92,246,0.4)]'
+                              : 'bg-white/5 text-[var(--text-secondary)] border border-white/10 hover:bg-white/7 hover:border-white/20 hover:text-white shadow-none opacity-100'
                           }`}
+                          style={SEGMENTED_BTN_FORCE_STYLE}
                         >
                           Non
                         </button>
                       </div>
                       {garant === 'oui' && (
-                        <div className="mt-4 space-y-4">
+                        <div>
+                          <div aria-hidden style={{ height: 16 }} />
                           <div>
-                            <div className="flex justify-between items-baseline mb-3">
+                            <div className="flex justify-between items-baseline mb-0">
                               <label className="text-sm text-[var(--text-secondary)]">Revenu garant</label>
                               <span className="text-xl font-bold text-white">{revenuGarant.toLocaleString()} €</span>
                             </div>
+                            <div aria-hidden style={{ height: 12 }} />
                             <div style={{ padding: '0 8px' }}>
                               <Slider value={[revenuGarant]} onValueChange={(v) => setRevenuGarant(v[0])} min={0} max={10000} step={100} />
                             </div>
+                            <div aria-hidden style={{ height: 16 }} />
                           </div>
-                          <div className="bg-[var(--bg-card)] rounded-xl p-4">
+                          <div className="bg-[var(--bg-card)] rounded-xl p-6" style={CARD_FORCE_STYLE_SM}>
                             <div className="flex items-center justify-between">
                               <label className="text-sm text-[var(--text-secondary)]">Garant propriétaire</label>
-                              <button
-                                onClick={() => setGarantProprio(!garantProprio)}
-                                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                                  garantProprio ? 'bg-violet-500 text-white' : 'bg-[var(--bg-secondary)] text-[var(--text-muted)]'
-                                }`}
-                              >
-                                {garantProprio ? 'Oui' : 'Non'}
-                              </button>
+                              <div className="flex items-center gap-2 p-1 rounded-2xl bg-white/5 border border-white/10">
+                                <button
+                                  type="button"
+                                  onClick={() => setGarantProprio(true)}
+                                  className={`flex-1 px-8 py-3.5 rounded-[40px] text-sm font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px ${
+                                    garantProprio
+                                      ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-[0_4px_20px_rgba(139,92,246,0.4)]'
+                                      : 'bg-white/5 text-[var(--text-secondary)] border border-white/10 hover:bg-white/7 hover:border-white/20 hover:text-white shadow-none opacity-100'
+                                  }`}
+                                  style={SEGMENTED_BTN_FORCE_STYLE}
+                                >
+                                  Oui
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setGarantProprio(false)}
+                                  className={`flex-1 px-8 py-3.5 rounded-[40px] text-sm font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px ${
+                                    !garantProprio
+                                      ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-[0_4px_20px_rgba(139,92,246,0.4)]'
+                                      : 'bg-white/5 text-[var(--text-secondary)] border border-white/10 hover:bg-white/7 hover:border-white/20 hover:text-white shadow-none opacity-100'
+                                  }`}
+                                  style={SEGMENTED_BTN_FORCE_STYLE}
+                                >
+                                  Non
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -771,22 +935,27 @@ export default function OnboardingPage() {
                   </div>
                 </section>
 
+                {/* Spacer entre Situation et Projet */}
+                <div aria-hidden style={{ height: 72 }} />
+
                 {/* Projet */}
                 <section>
-                  <div className="flex items-center gap-4 mb-10">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-cyan-600/10 flex items-center justify-center text-cyan-400">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500/20 to-violet-600/10 flex items-center justify-center text-violet-400">
                       {Icons.home}
                     </div>
                     <h2 className="text-3xl font-semibold text-white">Votre projet</h2>
                   </div>
 
+                  <div aria-hidden style={{ height: 48 }} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
                     {/* Prix du bien */}
                     <div>
-                      <div className="flex justify-between items-baseline mb-6">
+                      <div className="flex justify-between items-baseline mb-0">
                         <label className="text-xl font-medium text-[var(--text-secondary)]">Prix du bien</label>
                         <span className="text-4xl font-bold text-white">{prixProjet.toLocaleString()} €</span>
                       </div>
+                      <div aria-hidden style={{ height: 12 }} />
                       <div style={{ padding: '0 12px' }}>
                         <Slider value={[prixProjet]} onValueChange={(v) => setPrixProjet(v[0])} min={50000} max={500000} step={5000} />
                       </div>
@@ -794,10 +963,11 @@ export default function OnboardingPage() {
 
                     {/* Apport */}
                     <div>
-                      <div className="flex justify-between items-baseline mb-6">
+                      <div className="flex justify-between items-baseline mb-0">
                         <label className="text-xl font-medium text-[var(--text-secondary)]">Apport</label>
                         <span className="text-4xl font-bold text-white">{apport.toLocaleString()} €</span>
                       </div>
+                      <div aria-hidden style={{ height: 12 }} />
                       <div style={{ padding: '0 12px' }}>
                         <Slider value={[apport]} onValueChange={(v) => setApport(v[0])} min={0} max={200000} step={1000} />
                       </div>
@@ -805,110 +975,143 @@ export default function OnboardingPage() {
 
                     {/* Durée crédit */}
                     <div>
-                      <div className="flex justify-between items-baseline mb-6">
+                      <div className="flex justify-between items-baseline mb-0">
                         <label className="text-xl font-medium text-[var(--text-secondary)]">Durée du crédit</label>
                         <span className="text-4xl font-bold text-white">{dureeCredit} ans</span>
                       </div>
+                      <div aria-hidden style={{ height: 12 }} />
                       <div style={{ padding: '0 12px' }}>
-                        <Slider value={[dureeCredit]} onValueChange={(v) => setDureeCredit(v[0])} min={5} max={30} step={1} />
+                        <Slider value={[dureeCredit]} onValueChange={(v) => setDureeCredit(v[0])} min={5} max={25} step={1} />
                       </div>
                     </div>
                   </div>
                 </section>
 
                 {/* Résultats Faisabilité */}
-                <section className="mt-12">
+                <div aria-hidden style={{ height: 72 }} />
+                <section>
                   <div className="bg-gradient-to-br from-violet-500/10 to-purple-600/10 rounded-3xl border border-violet-500/20" style={{ padding: '56px' }}>
-                    <div className="flex items-center gap-4 mb-12">
+                    <div className="flex items-center gap-4">
                       <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500/20 to-violet-600/10 flex items-center justify-center text-violet-400">
                         {Icons.calculator}
                       </div>
                       <h2 className="text-3xl font-semibold text-white">Aperçu de votre faisabilité</h2>
                     </div>
+                    <div aria-hidden style={{ height: 48 }} />
 
                     {/* Score */}
-                    <div className="text-center mb-12">
-                      <div className="text-sm font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-4">
+                    <div className="text-center">
+                      <div className="text-sm font-semibold text-[var(--text-muted)] uppercase tracking-wider">
                         Score de Faisabilité
                       </div>
-                      <div className={`text-8xl font-extrabold bg-gradient-to-r ${
-                        faisabiliteResult.verdictColor === 'rose' ? 'from-rose-500 to-red-400' :
-                        faisabiliteResult.verdictColor === 'emerald' ? 'from-emerald-500 to-green-400' :
-                        faisabiliteResult.verdictColor === 'amber' ? 'from-amber-500 to-yellow-400' :
-                        'from-orange-500 to-rose-400'
-                      } bg-clip-text text-transparent mb-4`}>
+                      <div aria-hidden style={{ height: 16 }} />
+                      <div className="text-8xl font-extrabold bg-gradient-to-r from-violet-500 to-purple-600 bg-clip-text text-transparent">
                         {faisabiliteResult.score}
                         <span className="text-4xl">/100</span>
                       </div>
-                      <div className={`inline-flex items-center px-8 py-4 rounded-full text-xl font-semibold ${
-                        faisabiliteResult.verdictColor === 'rose' ? 'bg-rose-500/15 text-rose-400' :
-                        faisabiliteResult.verdictColor === 'emerald' ? 'bg-emerald-500/15 text-emerald-400' :
-                        faisabiliteResult.verdictColor === 'amber' ? 'bg-amber-500/15 text-amber-400' :
-                        'bg-orange-500/15 text-orange-400'
-                      }`}>
+                      <div aria-hidden style={{ height: 16 }} />
+                      <div className="inline-flex items-center px-8 py-4 rounded-full text-xl font-semibold bg-violet-500/15 text-violet-400">
                         {faisabiliteResult.verdict}
                       </div>
                     </div>
+                    <div aria-hidden style={{ height: 48 }} />
 
                     {/* Budget accessible */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                      <div className="bg-[var(--bg-card)] rounded-2xl p-6 border border-[var(--border-color)]">
-                        <div className="text-sm font-medium text-[var(--text-muted)] mb-3 uppercase tracking-wide">Budget accessible</div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="bg-[var(--bg-card)] rounded-2xl p-8 border border-[var(--border-color)]" style={CARD_FORCE_STYLE}>
+                        <div className="text-sm font-medium text-[var(--text-muted)] uppercase tracking-wide">Budget accessible</div>
+                        <div aria-hidden style={{ height: 12 }} />
                         <div className="text-3xl font-bold text-white">{faisabiliteResult.budgetTotal.toLocaleString()} €</div>
                       </div>
-                      <div className="bg-[var(--bg-card)] rounded-2xl p-6 border border-[var(--border-color)]">
-                        <div className="text-sm font-medium text-[var(--text-muted)] mb-3 uppercase tracking-wide">Capacité d'emprunt</div>
-                        <div className="text-3xl font-bold text-cyan-400">{faisabiliteResult.capaciteEmprunt.toLocaleString()} €</div>
+                      <div className="bg-[var(--bg-card)] rounded-2xl p-8 border border-[var(--border-color)]" style={CARD_FORCE_STYLE}>
+                        <div className="text-sm font-medium text-[var(--text-muted)] uppercase tracking-wide">Capacité d'emprunt</div>
+                        <div aria-hidden style={{ height: 12 }} />
+                        <div className="text-3xl font-bold text-violet-400">{faisabiliteResult.capaciteEmprunt.toLocaleString()} €</div>
                       </div>
-                      <div className="bg-[var(--bg-card)] rounded-2xl p-6 border border-[var(--border-color)]">
-                        <div className="text-sm font-medium text-[var(--text-muted)] mb-3 uppercase tracking-wide">Mensualité max</div>
+                      <div className="bg-[var(--bg-card)] rounded-2xl p-8 border border-[var(--border-color)]" style={CARD_FORCE_STYLE}>
+                        <div className="text-sm font-medium text-[var(--text-muted)] uppercase tracking-wide">Mensualité max</div>
+                        <div aria-hidden style={{ height: 12 }} />
                         <div className="text-3xl font-bold text-white">{faisabiliteResult.mensualiteMax.toLocaleString()} €</div>
                       </div>
                     </div>
+                    <div aria-hidden style={{ height: 40 }} />
 
                     {/* Facteurs */}
-                    <div className="space-y-5 mb-10">
+                    <div>
                       {faisabiliteResult.facteurs.map((facteur, idx) => {
                         const percent = (facteur.score / facteur.maxScore) * 100;
-                        const colorClass = 
-                          facteur.impact === 'positif' ? 'bg-emerald-500' :
-                          facteur.impact === 'negatif' ? 'bg-amber-500' :
-                          facteur.impact === 'bloquant' ? 'bg-rose-500' :
-                          'bg-blue-500';
+                        const colorClass =
+                          facteur.impact === 'bloquant' ? 'bg-rose-500' : 'bg-violet-500';
                         return (
                           <div key={idx}>
-                            <div className="flex justify-between items-center mb-3">
+                            <div className="flex justify-between items-center">
                               <span className="text-base font-medium text-[var(--text-secondary)]">{facteur.nom}</span>
                               <span className="text-base font-semibold text-white">{facteur.score}/{facteur.maxScore}</span>
                             </div>
+                            <div aria-hidden style={{ height: 12 }} />
                             <div className="h-3 bg-[var(--bg-secondary)] rounded-full overflow-hidden">
                               <div className={`h-full ${colorClass} transition-all duration-300 rounded-full`} style={{ width: `${percent}%` }} />
                             </div>
+                            {idx < faisabiliteResult.facteurs.length - 1 && <div aria-hidden style={{ height: 20 }} />}
                           </div>
                         );
                       })}
                     </div>
+                    <div aria-hidden style={{ height: 40 }} />
 
                     {/* Conseils et blocages */}
                     {faisabiliteResult.conseils.length > 0 && (
-                      <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-6 mb-6">
-                        <div className="text-base font-semibold text-blue-400 mb-4">💡 Conseils</div>
-                        <ul className="space-y-3">
+                      <div className="bg-violet-500/10 border border-violet-500/20 rounded-2xl p-8" style={CARD_FORCE_STYLE}>
+                        <div className="flex items-center gap-3">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ color: 'rgb(167,139,250)' }}>
+                            <path d="M9 21h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                            <path d="M10 17h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                            <path d="M8 10a4 4 0 118 0c0 2-1 3-2 4H10c-1-1-2-2-2-4z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+                          </svg>
+                          <div className="text-base font-semibold text-violet-400">Conseils</div>
+                        </div>
+                        <div aria-hidden style={{ height: 16 }} />
+                        <div className="flex flex-col">
                           {faisabiliteResult.conseils.map((conseil, idx) => (
-                            <li key={idx} className="text-base text-blue-300">• {conseil}</li>
+                            <div key={idx}>
+                              <div className="text-base text-violet-300">• {conseil}</div>
+                              {idx < faisabiliteResult.conseils.length - 1 && <div aria-hidden style={{ height: 12 }} />}
+                            </div>
                           ))}
-                        </ul>
+                        </div>
                       </div>
+                    )}
+                    {faisabiliteResult.conseils.length > 0 && faisabiliteResult.blocages.length > 0 && (
+                      <div aria-hidden style={{ height: 24 }} />
                     )}
 
                     {faisabiliteResult.blocages.length > 0 && (
-                      <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-6">
-                        <div className="text-base font-semibold text-rose-400 mb-4">⚠️ Points d'attention</div>
-                        <ul className="space-y-3">
+                      <div
+                        className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-8"
+                        style={CARD_FORCE_STYLE}
+                      >
+                        <div className="flex items-center gap-3">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ color: 'rgb(251,113,133)' }}>
+                            <path d="M12 9v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                            <path d="M12 17h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                            <path
+                              d="M10.29 3.86l-7.4 13.17A2 2 0 004.6 20h14.8a2 2 0 001.71-2.97l-7.4-13.17a2 2 0 00-3.42 0z"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                          <div className="text-base font-semibold text-rose-400">Points d'attention</div>
+                        </div>
+                        <div aria-hidden style={{ height: 16 }} />
+                        <div className="flex flex-col">
                           {faisabiliteResult.blocages.map((blocage, idx) => (
-                            <li key={idx} className="text-base text-rose-300">• {blocage}</li>
+                            <div key={idx}>
+                              <div className="text-base text-rose-300">• {blocage}</div>
+                              {idx < faisabiliteResult.blocages.length - 1 && <div aria-hidden style={{ height: 12 }} />}
+                            </div>
                           ))}
-                        </ul>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -918,19 +1121,31 @@ export default function OnboardingPage() {
 
             {/* Étape 2: Paramètres crédit */}
             {currentStep === 2 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '64px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
                 <section>
-                  <div className="flex items-center gap-4 mb-10">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-indigo-600/10 flex items-center justify-center text-indigo-400">
+                  <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500/20 to-violet-600/10 flex items-center justify-center text-violet-400">
                       {Icons.calculator}
                     </div>
                     <h2 className="text-3xl font-semibold text-white">Paramètres du crédit</h2>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
+                  <div aria-hidden style={{ height: 48 }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '56px' }}>
                     {/* Informations pré-remplies */}
-                    <div className="bg-[var(--bg-secondary)] rounded-2xl p-6">
-                      <h3 className="text-lg font-semibold text-white mb-4">Récapitulatif de votre projet</h3>
+                    <div className="bg-[var(--bg-secondary)] rounded-2xl p-8" style={CARD_FORCE_STYLE}>
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-white">Récapitulatif de votre projet</h3>
+                        <button
+                          onClick={() => setCurrentStep(1)}
+                          className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-[40px] text-sm font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-[0_4px_20px_rgba(139,92,246,0.4)]"
+                          style={SEGMENTED_BTN_FORCE_STYLE}
+                        >
+                          {Icons.arrowLeft}
+                          Modifier
+                        </button>
+                      </div>
+                      <div aria-hidden style={{ height: 20 }} />
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                           <div className="text-sm text-[var(--text-muted)] mb-1">Prix du bien</div>
@@ -942,7 +1157,7 @@ export default function OnboardingPage() {
                         </div>
                         <div>
                           <div className="text-sm text-[var(--text-muted)] mb-1">Montant emprunté</div>
-                          <div className="text-xl font-bold text-cyan-400">{montantEmprunte.toLocaleString()} €</div>
+                          <div className="text-xl font-bold text-violet-400">{montantEmprunte.toLocaleString()} €</div>
                         </div>
                         <div>
                           <div className="text-sm text-[var(--text-muted)] mb-1">Durée</div>
@@ -953,21 +1168,23 @@ export default function OnboardingPage() {
 
                     {/* Taux d'intérêt */}
                     <div>
-                      <div className="flex justify-between items-baseline mb-6">
+                      <div className="flex justify-between items-baseline mb-0">
                         <label className="text-xl font-medium text-[var(--text-secondary)]">Taux d'intérêt annuel</label>
                         <span className="text-4xl font-bold text-white">{tauxInteret.toFixed(2)}%</span>
                       </div>
+                      <div aria-hidden style={{ height: 12 }} />
                       <div style={{ padding: '0 12px' }}>
                         <Slider value={[tauxInteret * 100]} onValueChange={(v) => setTauxInteret(v[0] / 100)} min={10} max={800} step={5} />
                       </div>
-                      <div className="flex justify-between text-sm text-[var(--text-muted)] mt-3">
+                      <div aria-hidden style={{ height: 12 }} />
+                      <div className="flex justify-between text-sm text-[var(--text-muted)]">
                         <span>0,1%</span>
                         <span>8%</span>
                       </div>
                     </div>
 
                     {/* Inclure charges */}
-                    <div className="bg-[var(--bg-secondary)] rounded-2xl p-6">
+                    <div className="bg-[var(--bg-secondary)] rounded-2xl p-8" style={CARD_FORCE_STYLE}>
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="text-lg font-semibold text-white mb-1">Inclure 20% de charges locatives</div>
@@ -975,11 +1192,12 @@ export default function OnboardingPage() {
                         </div>
                         <button
                           onClick={() => setInclureCharges(!inclureCharges)}
-                          className={`px-6 py-3 rounded-xl text-sm font-medium transition-all ${
+                          className={`px-8 py-3.5 rounded-[40px] text-sm font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px ${
                             inclureCharges
-                              ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30'
-                              : 'bg-[var(--bg-card)] text-[var(--text-muted)]'
+                              ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-[0_4px_20px_rgba(139,92,246,0.4)]'
+                            : 'bg-white/5 text-[var(--text-secondary)] border border-white/10 hover:bg-white/7 hover:border-white/20 hover:text-white shadow-none opacity-100'
                           }`}
+                          style={SEGMENTED_BTN_FORCE_STYLE}
                         >
                           {inclureCharges ? 'Oui' : 'Non'}
                         </button>
@@ -989,70 +1207,56 @@ export default function OnboardingPage() {
                 </section>
 
                 {/* Résultats Rendement */}
-                <section className="mt-12">
-                  <div className="bg-gradient-to-br from-indigo-500/10 to-violet-600/10 rounded-3xl border border-indigo-500/20" style={{ padding: '56px' }}>
-                    <div className="flex items-center gap-4 mb-12">
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-indigo-600/10 flex items-center justify-center text-indigo-400">
+                <div aria-hidden style={{ height: 72 }} />
+                <section>
+                  <div className="bg-gradient-to-br from-violet-500/10 to-violet-600/10 rounded-3xl border border-violet-500/20" style={{ padding: '56px' }}>
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500/20 to-violet-600/10 flex items-center justify-center text-violet-400">
                         {Icons.calculator}
                       </div>
                       <h2 className="text-3xl font-semibold text-white">Aperçu du rendement requis</h2>
                     </div>
+                    <div aria-hidden style={{ height: 48 }} />
 
                     {/* Rendement */}
-                    <div className="text-center mb-12">
-                      <div className="text-sm font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-4">
-                        {rendementResult.statusEmoji} Rendement Brut Minimal Requis
+                    <div className="text-center">
+                      <div className="flex items-center justify-center gap-3 text-sm font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ color: 'rgb(167,139,250)' }}>
+                          <path d="M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                        </svg>
+                        <span>Rendement Brut Minimal Requis</span>
                       </div>
-                      <div className={`text-8xl font-extrabold bg-gradient-to-r ${
-                        rendementResult.status === 'excellent' ? 'from-emerald-500 to-green-400' :
-                        rendementResult.status === 'bon' ? 'from-blue-500 to-cyan-400' :
-                        rendementResult.status === 'moyen' ? 'from-amber-500 to-yellow-400' :
-                        'from-rose-500 to-red-400'
-                      } bg-clip-text text-transparent mb-4`}>
+                      <div aria-hidden style={{ height: 16 }} />
+                      <div className="text-8xl font-extrabold bg-gradient-to-r from-violet-500 to-purple-600 bg-clip-text text-transparent">
                         {rendementResult.rendementRequis.toFixed(2)}%
                       </div>
-                      <div className={`inline-flex items-center px-8 py-4 rounded-full text-xl font-semibold ${
-                        rendementResult.status === 'excellent' ? 'bg-emerald-500/15 text-emerald-400' :
-                        rendementResult.status === 'bon' ? 'bg-blue-500/15 text-blue-400' :
-                        rendementResult.status === 'moyen' ? 'bg-amber-500/15 text-amber-400' :
-                        'bg-rose-500/15 text-rose-400'
-                      }`}>
+                      <div aria-hidden style={{ height: 16 }} />
+                      <div className="inline-flex items-center px-8 py-4 rounded-full text-xl font-semibold bg-violet-500/15 text-violet-400">
                         {rendementResult.statusLabel}
                       </div>
                     </div>
+                    <div aria-hidden style={{ height: 48 }} />
 
                     {/* Détails */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-                      <div className="bg-[var(--bg-card)] rounded-2xl p-6 border border-[var(--border-color)]">
-                        <div className="text-sm font-medium text-[var(--text-muted)] mb-3 uppercase tracking-wide">Mensualité crédit</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-[var(--bg-card)] rounded-2xl p-8 border border-[var(--border-color)]" style={CARD_FORCE_STYLE}>
+                        <div className="text-sm font-medium text-[var(--text-muted)] uppercase tracking-wide">Mensualité crédit</div>
+                        <div aria-hidden style={{ height: 12 }} />
                         <div className="text-3xl font-bold text-white">{rendementResult.mensualite.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</div>
                       </div>
-                      <div className="bg-[var(--bg-card)] rounded-2xl p-6 border border-[var(--border-color)]">
-                        <div className="text-sm font-medium text-[var(--text-muted)] mb-3 uppercase tracking-wide">Loyer mensuel requis</div>
-                        <div className={`text-3xl font-bold ${
-                          rendementResult.status === 'excellent' ? 'text-emerald-400' :
-                          rendementResult.status === 'bon' ? 'text-blue-400' :
-                          rendementResult.status === 'moyen' ? 'text-amber-400' :
-                          'text-rose-400'
-                        }`}>
+                      <div className="bg-[var(--bg-card)] rounded-2xl p-8 border border-[var(--border-color)]" style={CARD_FORCE_STYLE}>
+                        <div className="text-sm font-medium text-[var(--text-muted)] uppercase tracking-wide">Loyer mensuel requis</div>
+                        <div aria-hidden style={{ height: 12 }} />
+                        <div className="text-3xl font-bold text-violet-400">
                           {rendementResult.loyerMensuelRequis.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}/mois
                         </div>
                       </div>
                     </div>
+                    <div aria-hidden style={{ height: 40 }} />
 
                     {/* Message */}
-                    <div className={`rounded-2xl border-l-4 p-6 ${
-                      rendementResult.status === 'excellent' ? 'bg-emerald-500/10 border-emerald-500' :
-                      rendementResult.status === 'bon' ? 'bg-blue-500/10 border-blue-500' :
-                      rendementResult.status === 'moyen' ? 'bg-amber-500/10 border-amber-500' :
-                      'bg-rose-500/10 border-rose-500'
-                    }`}>
-                      <p className={`text-base ${
-                        rendementResult.status === 'excellent' ? 'text-emerald-300' :
-                        rendementResult.status === 'bon' ? 'text-blue-300' :
-                        rendementResult.status === 'moyen' ? 'text-amber-300' :
-                        'text-rose-300'
-                      }`}>
+                      <div className="rounded-2xl border-l-4 p-8 bg-violet-500/10 border-violet-500" style={CARD_FORCE_STYLE}>
+                        <p className="text-base text-violet-300">
                         {rendementResult.message}
                       </p>
                     </div>
@@ -1063,25 +1267,30 @@ export default function OnboardingPage() {
 
             {/* Étape 3: Localisation */}
             {currentStep === 3 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '64px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
                 <section>
-                  <div className="flex items-center gap-4 mb-10">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-lime-500/20 to-lime-600/10 flex items-center justify-center text-lime-400">
+                  <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500/20 to-violet-600/10 flex items-center justify-center text-violet-400">
                       {Icons.map}
                     </div>
                     <h2 className="text-3xl font-semibold text-white">Localisation</h2>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
+                  <div aria-hidden style={{ height: 48 }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '56px' }}>
                     {/* Ville domicile */}
                     <div>
-                      <label className="text-lg font-semibold text-white mb-3 block">Ville domicile *</label>
-                      <p className="text-sm text-[var(--text-muted)] mb-4">Votre lieu de résidence principal</p>
+                      <label className="text-lg font-semibold text-white mb-0 block">Où habitez-vous ? *</label>
+                      <div aria-hidden style={{ height: 12 }} />
+                      <p className="text-sm text-[var(--text-muted)]" style={{ margin: 0 }}>
+                        Votre lieu de résidence principal, utilisé pour calculer les temps de trajet et les zones accessibles autour de chez vous
+                      </p>
+                      <div aria-hidden style={{ height: 16 }} />
                       {villeDomicile ? (
-                        <div className="bg-[var(--bg-secondary)] rounded-2xl p-4 border border-red-500/20">
+                        <div className="bg-[var(--bg-secondary)] rounded-2xl p-8 border border-violet-500/20" style={CARD_FORCE_STYLE}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400">
+                              <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-400">
                                 {Icons.home}
                               </div>
                               <div>
@@ -1093,7 +1302,7 @@ export default function OnboardingPage() {
                             </div>
                             <button
                               onClick={() => setVilleDomicile(null)}
-                              className="w-10 h-10 rounded-xl bg-red-500/10 hover:bg-red-500/20 flex items-center justify-center text-red-400 transition-colors"
+                              className="w-10 h-10 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 flex items-center justify-center text-violet-400 transition-colors"
                             >
                               {Icons.x}
                             </button>
@@ -1107,21 +1316,29 @@ export default function OnboardingPage() {
                       )}
                     </div>
 
-                    {/* Villes relais */}
+                    {/* Villes d'intérêt */}
                     <div>
-                      <label className="text-lg font-semibold text-white mb-3 block">Villes relais</label>
-                      <p className="text-sm text-[var(--text-muted)] mb-4">Lieux de travail, famille, ou villes où vous pourriez investir (optionnel)</p>
+                      <label className="text-lg font-semibold text-white mb-0 block">
+                        Villes d'intérêt <span className="text-sm font-normal text-[var(--text-muted)]">(optionnel)</span>
+                      </label>
+                      <div aria-hidden style={{ height: 12 }} />
+                      <p className="text-sm text-[var(--text-muted)]" style={{ margin: 0 }}>
+                        Autres villes où vous envisagez d'investir, résidence secondaire, famille, lieu de travail...
+                      </p>
+                      <div aria-hidden style={{ height: 16 }} />
                       <VilleSearch
-                        placeholder="Ajouter une ville relais..."
+                        placeholder="Ajouter une ville..."
                         onSelect={handleSelectRelais}
                       />
                       {villesRelais.length > 0 && (
-                        <div className="mt-4 space-y-2">
+                        <div>
+                          <div aria-hidden style={{ height: 16 }} />
                           {villesRelais.map((ville, index) => (
-                            <div key={index} className="bg-[var(--bg-secondary)] rounded-xl p-3 border border-blue-500/20">
+                            <div key={index}>
+                              <div className="bg-[var(--bg-secondary)] rounded-xl p-6 border border-violet-500/20" style={CARD_FORCE_STYLE_SM}>
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400">
+                                  <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-400">
                                     {Icons.map}
                                   </div>
                                   <div>
@@ -1133,11 +1350,13 @@ export default function OnboardingPage() {
                                 </div>
                                 <button
                                   onClick={() => removeVilleRelais(index)}
-                                  className="w-8 h-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 flex items-center justify-center text-red-400 transition-colors"
+                                  className="w-8 h-8 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 flex items-center justify-center text-violet-400 transition-colors"
                                 >
                                   {Icons.x}
                                 </button>
                               </div>
+                            </div>
+                              {index < villesRelais.length - 1 && <div aria-hidden style={{ height: 12 }} />}
                             </div>
                           ))}
                         </div>
@@ -1146,10 +1365,11 @@ export default function OnboardingPage() {
 
                     {/* Rayon */}
                     <div>
-                      <div className="flex justify-between items-baseline mb-6">
+                      <div className="flex justify-between items-baseline mb-0">
                         <label className="text-xl font-medium text-[var(--text-secondary)]">Rayon de recherche</label>
                         <span className="text-4xl font-bold text-white">{rayon} km</span>
                       </div>
+                      <div aria-hidden style={{ height: 12 }} />
                       <div style={{ padding: '0 12px' }}>
                         <Slider value={[rayon]} onValueChange={(v) => setRayon(v[0])} min={5} max={50} step={5} />
                       </div>
@@ -1157,13 +1377,15 @@ export default function OnboardingPage() {
 
                     {/* Carte */}
                     {(villeDomicile || villesRelais.length > 0) && (
-                      <div className="mt-8">
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="w-10 h-10 rounded-xl bg-lime-500/10 flex items-center justify-center text-lime-400">
+                      <div>
+                        <div aria-hidden style={{ height: 8 }} />
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-400">
                             {Icons.map}
                           </div>
                           <h3 className="text-xl font-semibold text-white">Vue d'ensemble de vos villes</h3>
                         </div>
+                        <div aria-hidden style={{ height: 16 }} />
                         <div className="rounded-2xl overflow-hidden border border-[var(--border-color)]" style={{ height: '500px' }}>
                           {isLoadingCommunes ? (
                             <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)]">
@@ -1189,11 +1411,17 @@ export default function OnboardingPage() {
           </div>
 
           {/* Navigation Buttons */}
-          <div className="flex items-center justify-between mt-8">
+          <div aria-hidden style={{ height: 40 }} />
+          <div className="flex items-center justify-between">
             <button
               onClick={prevStep}
               disabled={currentStep === 1 || isSaving}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className={`inline-flex items-center justify-center gap-2 px-8 py-4 rounded-[40px] text-sm font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px ${
+                currentStep === 1 || isSaving
+                  ? 'bg-white/5 text-[var(--text-secondary)] border border-white/10 shadow-none disabled:opacity-100 disabled:cursor-not-allowed hover:bg-white/7 hover:border-white/20 hover:text-white'
+                  : 'bg-white/5 text-[var(--text-secondary)] border border-white/10 shadow-none disabled:opacity-100 disabled:cursor-not-allowed hover:bg-white/7 hover:border-white/20 hover:text-white'
+              }`}
+              style={SEGMENTED_BTN_FORCE_STYLE}
             >
               {Icons.arrowLeft}
               Précédent
@@ -1217,7 +1445,12 @@ export default function OnboardingPage() {
             <button
               onClick={nextStep}
               disabled={isSaving}
-              className="flex items-center gap-2 px-8 py-4 rounded-xl font-semibold bg-gradient-to-r from-violet-600 to-purple-600 text-white hover:shadow-lg hover:shadow-violet-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className={`inline-flex items-center justify-center gap-2 px-10 py-4 rounded-[40px] text-sm font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px ${
+                isSaving
+                  ? 'bg-white/5 text-[var(--text-secondary)] border border-white/10 shadow-none disabled:opacity-100 disabled:cursor-not-allowed hover:bg-white/7 hover:border-white/20 hover:text-white'
+                  : 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-[0_4px_20px_rgba(139,92,246,0.4)] disabled:opacity-100 disabled:cursor-not-allowed'
+              }`}
+              style={SEGMENTED_BTN_FORCE_STYLE}
             >
               {currentStep === 3 ? 'Terminer' : 'Suivant'}
               {currentStep < 3 && Icons.arrowRight}

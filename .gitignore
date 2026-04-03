@@ -80,3 +80,25 @@ nul
 
 # Claude Code
 .claude/
+
+# Cursor
+.cursor/
+
+# Rendu / presentation files
+rendu/
+
+# Large notebooks
+*.ipynb
+
+# Misc assets not needed in repo
+*.svg
+hero.png
+"logo (2).png"
+"Capture d'écran*"
+PROMPT_DESIGN_IMPROVEMENT.md
+stop-servers.ps1
+backend/debug_html.txt
+backend/server.log
+frontend/frontend.log
+backend.log
+frontend.log

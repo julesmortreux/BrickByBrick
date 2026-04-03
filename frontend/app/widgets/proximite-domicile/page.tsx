@@ -4,6 +4,9 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { Slider } from '@/components/ui/slider';
 import { useAuth, authFetch } from '@/lib/auth';
+
+const CONTAINER = { maxWidth: 1400, marginLeft: 'auto', marginRight: 'auto', paddingLeft: 48, paddingRight: 48 } as const;
+const CTA_STYLE = { background: 'linear-gradient(135deg,#8b5cf6,#4f46e5)', borderRadius: 40, boxShadow: '0 4px 20px rgba(139,92,246,0.4)', padding: '14px 32px', fontSize: '1rem', lineHeight: 1 } as const;
 import dynamic from 'next/dynamic';
 
 // Import dynamique du composant Map pour éviter les erreurs SSR
@@ -188,7 +191,7 @@ function VilleSearch({ placeholder, onSelect, disabled }: VilleSearchProps) {
 }
 
 export default function ProximiteDomicilePage() {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   // Budget
   const [budget, setBudget] = useState(150000);
@@ -208,7 +211,6 @@ export default function ProximiteDomicilePage() {
   const [mounted, setMounted] = useState(false);
 
   // Préférences
-  const [isSaving, setIsSaving] = useState(false);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
 
   // Debounce
@@ -367,98 +369,31 @@ export default function ProximiteDomicilePage() {
     };
   }, [communesData]);
 
-  // Sauvegarder
-  const savePreferences = async () => {
-    if (!isAuthenticated) {
-      window.location.href = '/login';
-      return;
-    }
-
-    setIsSaving(true);
-
-    try {
-      const response = await authFetch('/auth/preferences');
-      let currentPrefs = {};
-      if (response.ok) {
-        const data = await response.json();
-        if (data) currentPrefs = data;
-      }
-
-      const updateResponse = await authFetch('/auth/preferences', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...currentPrefs,
-          w5_rayon: rayon,
-          w5_ville_domicile: villeDomicile ? JSON.stringify(villeDomicile) : null,
-          w5_villes_relais: villesRelais.length > 0 ? JSON.stringify(villesRelais) : null,
-        }),
-      });
-
-      if (updateResponse.ok) {
-        window.location.href = '/';
-      }
-    } catch (error) {
-      console.error('Erreur sauvegarde:', error);
-      setIsSaving(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
-      {/* Navigation Bar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[var(--bg-primary)]/95 backdrop-blur-xl border-b border-[var(--border-color)]">
-        <div className="max-w-7xl mx-auto px-8 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="text-xl font-bold">
-              <span className="text-white">Brick</span>
-              <span className="text-[var(--primary-light)]">ByBrick</span>
-            </Link>
-            <span className="text-[var(--text-muted)]">|</span>
-            <span className="text-[var(--text-secondary)] text-sm">Proximite Domicile</span>
-          </div>
-
-          <div className="flex items-center gap-6">
-            {isAuthenticated && user ? (
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--primary-light)] flex items-center justify-center text-white font-semibold">
-                    {user.first_name.charAt(0)}{user.last_name.charAt(0)}
-                  </div>
-                  <span className="text-white font-medium hidden sm:block">{user.first_name}</span>
-                </div>
-                <button onClick={logout} className="px-6 py-3 rounded-xl text-sm text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-secondary)] transition-colors">
-                  Deconnexion
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-5">
-                <Link href="/login" className="px-6 py-3 rounded-xl text-sm text-[var(--text-secondary)] hover:text-white transition-colors">Connexion</Link>
-                <Link href="/register" className="px-8 py-4 rounded-xl font-medium bg-[var(--primary)] text-white hover:opacity-90 transition-opacity">Creer un compte</Link>
-              </div>
-            )}
-          </div>
-        </div>
-      </nav>
-
       {/* Hero */}
-      <div className="bg-gradient-to-b from-lime-600/10 to-transparent" style={{ paddingTop: '120px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '60px 48px', textAlign: 'center' }}>
-          <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-lime-500/10 border border-lime-500/20 text-lime-400 text-sm font-medium mb-8">
+      <div className="bg-gradient-to-b from-lime-600/10 to-transparent" style={{ paddingTop: 72 }}>
+        <div style={{ ...CONTAINER, paddingTop: 64, paddingBottom: 56, textAlign: 'center' }}>
+          <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-lime-500/10 border border-lime-500/20 text-lime-300 text-sm font-semibold">
             <span className="w-2 h-2 rounded-full bg-lime-400 animate-pulse" />
-            Recherche par proximite
+            Outil • Proximité domicile
           </div>
-          <div style={{ height: '20px' }}></div>
-          <h1 className="text-5xl font-bold text-white mb-8">Proximite Domicile</h1>
-          <div style={{ height: '20px' }}></div>
-          <p className="text-xl text-[var(--text-secondary)] text-center" style={{ maxWidth: '700px', margin: '0 auto' }}>
-            Trouvez les communes accessibles autour de votre domicile et de vos villes relais
+          <div aria-hidden style={{ height: 22 }} />
+          <h1 className="text-5xl font-bold text-white" style={{ letterSpacing: '-0.02em' }}>Proximité Domicile</h1>
+          <div aria-hidden style={{ height: 14 }} />
+          <p style={{ fontSize: 18, lineHeight: 1.7, color: 'var(--text-secondary)', maxWidth: 820, marginLeft: 'auto', marginRight: 'auto' }}>
+            Trouvez les communes accessibles autour de votre domicile et de vos villes relais. Les informations de référence se modifient dans les paramètres.
           </p>
+          <div aria-hidden style={{ height: 30 }} />
+          <Link href="/dashboard" className="inline-flex items-center justify-center text-white font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px" style={CTA_STYLE}>
+            Retour au tableau de bord
+          </Link>
         </div>
       </div>
 
       {/* Main Content */}
-      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px 60px 48px' }}>
+      <main style={{ ...CONTAINER, paddingTop: 0, paddingBottom: 96 }}>
 
         {/* Parametres */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
@@ -708,20 +643,16 @@ export default function ProximiteDomicilePage() {
         </div>
       </main>
 
-      {/* Save Section */}
-      <div
-        className="border-t border-[var(--border-color)]"
-        style={{ padding: '60px 48px', background: 'linear-gradient(to top, rgba(132, 204, 22, 0.05), transparent)' }}
-      >
-        <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-          <button
-            onClick={savePreferences}
-            disabled={isSaving}
-            style={{ padding: '20px 60px', fontSize: '1.125rem', borderRadius: '16px' }}
-            className="font-bold transition-all shadow-2xl bg-gradient-to-r from-lime-600 via-lime-500 to-lime-600 text-white hover:shadow-lime-500/30 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
-          >
-            {isSaving ? 'Sauvegarde...' : 'Sauvegarder'}
-          </button>
+      {/* Footer CTA */}
+      <div className="border-t" style={{ borderColor: 'rgba(255,255,255,0.08)', paddingTop: 64, paddingBottom: 96, background: 'linear-gradient(to top, rgba(132,204,22,0.06), transparent)' }}>
+        <div style={{ ...CONTAINER, textAlign: 'center' }}>
+          <Link href="/dashboard" className="inline-flex items-center justify-center text-white font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px" style={{ ...CTA_STYLE, padding: '18px 44px', fontSize: '1.05rem' }}>
+            Retour au tableau de bord
+          </Link>
+          <div aria-hidden style={{ height: 14 }} />
+          <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            Pour modifier vos informations de référence, rendez-vous dans <span className="text-white/80">Paramètres</span>.
+          </div>
         </div>
       </div>
     </div>

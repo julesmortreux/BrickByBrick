@@ -4,6 +4,9 @@ import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Slider } from '@/components/ui/slider';
 
+const CONTAINER = { maxWidth: 1400, marginLeft: 'auto', marginRight: 'auto', paddingLeft: 48, paddingRight: 48 } as const;
+const CTA_STYLE = { background: 'linear-gradient(135deg,#8b5cf6,#4f46e5)', borderRadius: 40, boxShadow: '0 4px 20px rgba(139,92,246,0.4)', padding: '14px 32px', fontSize: '1rem', lineHeight: 1 } as const;
+
 // Données des régions/départements avec leurs prix moyens et coordonnées
 const regions = [
   { id: '75', nom: 'Paris', prixMoyen: 10500, lat: 48.85, lng: 2.35, population: '2.2M', etudiants: 350000 },
@@ -78,38 +81,31 @@ export default function CarteZonesPage() {
   };
 
   return (
-    <div className="min-h-screen">
-      {/* Header */}
-      <header className="border-b border-[var(--border-color)] bg-[var(--bg-secondary)]/50 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3 text-[var(--text-secondary)] hover:text-white transition-colors">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            <span>Retour</span>
-          </Link>
-          
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-mono text-[var(--text-muted)]">#04</span>
-            <span className="text-sm text-[var(--text-secondary)]">Carte Zones Accessibles</span>
+    <div className="min-h-screen bg-[var(--bg-primary)]">
+      {/* Hero */}
+      <div className="bg-gradient-to-b from-amber-600/10 to-transparent" style={{ paddingTop: 72 }}>
+        <div style={{ ...CONTAINER, paddingTop: 64, paddingBottom: 56, textAlign: 'center' }}>
+          <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm font-semibold">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            Outil • Carte des zones
           </div>
-        </div>
-      </header>
-
-      <main className="max-w-6xl mx-auto px-6 py-12">
-        {/* Title */}
-        <div className="text-center mb-12 animate-fade-in">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-4xl shadow-lg">
-            🗺️
-          </div>
-          <h1 className="text-4xl font-bold text-white mb-3">Carte des Zones Accessibles</h1>
-          <p className="text-lg text-[var(--text-secondary)] max-w-xl mx-auto">
-            Visualisez où vous pouvez acheter avec votre budget
+          <div aria-hidden style={{ height: 22 }} />
+          <h1 className="text-5xl font-bold text-white" style={{ letterSpacing: '-0.02em' }}>Carte des Zones Accessibles</h1>
+          <div aria-hidden style={{ height: 14 }} />
+          <p style={{ fontSize: 18, lineHeight: 1.7, color: 'var(--text-secondary)', maxWidth: 820, marginLeft: 'auto', marginRight: 'auto' }}>
+            Visualisez quelles métropoles sont accessibles avec votre budget, filtrées par surface cible et prix au m².
           </p>
+          <div aria-hidden style={{ height: 30 }} />
+          <Link href="/dashboard" className="inline-flex items-center justify-center text-white font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px" style={CTA_STYLE}>
+            Retour au tableau de bord
+          </Link>
         </div>
+      </div>
+
+      <main style={{ ...CONTAINER, paddingTop: 0, paddingBottom: 0 }}>
 
         {/* Controls */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 animate-fade-in" style={{ animationDelay: '0.1s' }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8" style={{ paddingTop: 48 }}>
           {/* Budget */}
           <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] p-6">
             <div className="flex items-center justify-between mb-4">
@@ -305,6 +301,19 @@ export default function CarteZonesPage() {
           </div>
         </div>
       </main>
+
+      {/* Footer CTA */}
+      <div className="border-t" style={{ borderColor: 'rgba(255,255,255,0.08)', paddingTop: 64, paddingBottom: 96, background: 'linear-gradient(to top, rgba(245,158,11,0.06), transparent)' }}>
+        <div style={{ ...CONTAINER, textAlign: 'center' }}>
+          <Link href="/dashboard" className="inline-flex items-center justify-center text-white font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px" style={{ ...CTA_STYLE, padding: '18px 44px', fontSize: '1.05rem' }}>
+            Retour au tableau de bord
+          </Link>
+          <div aria-hidden style={{ height: 14 }} />
+          <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            Les données sont calculées à partir de prix moyens du marché. Ajustez votre profil dans les <span className="text-white/80">Paramètres</span>.
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

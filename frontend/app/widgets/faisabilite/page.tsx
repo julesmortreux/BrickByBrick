@@ -20,8 +20,33 @@ interface CalculationResult {
 
 const BANK_CRITERIA = { tauxEndettementMax: 0.35, tauxInteret: 0.035, assurancePct: 0.0034 };
 
+const CONTAINER = {
+  maxWidth: 1400,
+  marginLeft: 'auto',
+  marginRight: 'auto',
+  paddingLeft: 48,
+  paddingRight: 48,
+} as const;
+
+const CARD = {
+  borderRadius: 24,
+  border: '1px solid rgba(255,255,255,0.08)',
+  background: 'rgba(255,255,255,0.03)',
+  backdropFilter: 'blur(12px)',
+} as const;
+
+const CARD_P = { padding: 40 } as const;
+
+const CTA_STYLE = {
+  background: 'linear-gradient(135deg,#8b5cf6,#4f46e5)',
+  borderRadius: 40,
+  boxShadow: '0 4px 20px rgba(139,92,246,0.4)',
+  padding: '14px 32px',
+  fontSize: '1rem',
+  lineHeight: 1,
+} as const;
+
 const Icons = {
-  back: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>,
   home: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>,
   user: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>,
   wallet: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>,
@@ -34,7 +59,7 @@ const Icons = {
 };
 
 export default function FaisabilitePage() {
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated } = useAuth();
   
   const [prixProjet, setPrixProjet] = useState(150000);
   const [apport, setApport] = useState(15000);
@@ -48,9 +73,6 @@ export default function FaisabilitePage() {
   const [revenuGarant, setRevenuGarant] = useState(4000);
   const [garantProprio, setGarantProprio] = useState(true);
   
-  // Save state
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
 
   // Load preferences on mount
@@ -86,57 +108,6 @@ export default function FaisabilitePage() {
     } catch (error) {
       console.error('Failed to load preferences:', error);
       setPrefsLoaded(true); // Mark as loaded to prevent infinite retries
-    }
-  };
-
-  const savePreferences = async () => {
-    if (!isAuthenticated) {
-      setSaveMessage({ type: 'error', text: 'Connectez-vous pour sauvegarder' });
-      setTimeout(() => setSaveMessage(null), 3000);
-      return;
-    }
-
-    setIsSaving(true);
-    setSaveMessage(null);
-
-    try {
-      // First, fetch existing preferences to preserve other widgets' settings
-      const getResponse = await authFetch('/auth/preferences');
-      let existingPrefs = {};
-      if (getResponse.ok) {
-        const data = await getResponse.json();
-        if (data) existingPrefs = data;
-      }
-
-      // Merge with Widget 1 fields (preserves Widget 2, 3 settings)
-      const response = await authFetch('/auth/preferences', {
-        method: 'PUT',
-        body: JSON.stringify({
-          ...existingPrefs,
-          prix_projet: prixProjet,
-          apport: apport,
-          duree_credit: dureeCredit,
-          statut: statut,
-          anciennete: anciennete,
-          revenu_mensuel: revenuMensuel,
-          co_borrower: coBorrower,
-          revenu_co_borrower: revenuCoBorrower,
-          garant: garant,
-          revenu_garant: revenuGarant,
-          garant_proprio: garantProprio
-        })
-      });
-
-      if (response.ok) {
-        // Redirect to home page after successful save
-        window.location.href = '/';
-      } else {
-        setSaveMessage({ type: 'error', text: 'Erreur lors de la sauvegarde' });
-        setIsSaving(false);
-      }
-    } catch (error) {
-      setSaveMessage({ type: 'error', text: 'Erreur de connexion' });
-      setIsSaving(false);
     }
   };
 
@@ -271,73 +242,35 @@ export default function FaisabilitePage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
-      {/* Navigation Bar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[var(--bg-primary)]/95 backdrop-blur-xl border-b border-[var(--border-color)]">
-        <div className="max-w-7xl mx-auto px-8 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="text-xl font-bold">
-              <span className="text-white">Brick</span>
-              <span className="text-[var(--primary-light)]">ByBrick</span>
-            </Link>
-            <span className="text-[var(--text-muted)]">|</span>
-            <span className="text-[var(--text-secondary)] text-sm">Faisabilité</span>
-          </div>
-          
-          <div className="flex items-center gap-6">
-            {isAuthenticated && user ? (
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--primary-light)] flex items-center justify-center text-white font-semibold">
-                    {user.first_name.charAt(0)}{user.last_name.charAt(0)}
-                  </div>
-                  <span className="text-white font-medium hidden sm:block">
-                    {user.first_name}
-                  </span>
-                </div>
-                <button
-                  onClick={logout}
-                  className="px-6 py-3 rounded-xl text-sm text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-secondary)] transition-colors"
-                >
-                  Déconnexion
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-5">
-                <Link
-                  href="/login"
-                  className="px-6 py-3 rounded-xl text-sm text-[var(--text-secondary)] hover:text-white transition-colors"
-                >
-                  Connexion
-                </Link>
-                <Link
-                  href="/register"
-                  className="px-8 py-4 rounded-xl font-medium bg-[var(--primary)] text-white hover:opacity-90 transition-opacity"
-                >
-                  Créer un compte
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero - with padding-top for fixed navbar */}
-      <div className="bg-gradient-to-b from-violet-600/10 to-transparent" style={{ paddingTop: '80px' }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '60px 48px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 text-sm font-medium mb-8">
+      {/* Hero */}
+      <div className="bg-gradient-to-b from-violet-600/10 to-transparent" style={{ paddingTop: 72 }}>
+        <div style={{ ...CONTAINER, paddingTop: 64, paddingBottom: 56, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-sm font-semibold">
             <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
-            Simulateur de prêt immobilier
+            Outil • Faisabilité d'achat
           </div>
-          <h1 className="text-5xl font-bold text-white mb-6">Puis-je emprunter ?</h1>
-          <p style={{ fontSize: '1.25rem', color: 'var(--text-secondary)', maxWidth: '600px', textAlign: 'center', margin: '0 auto' }}>
-            Découvrez votre capacité d'emprunt selon les critères réels des banques.
+          <div aria-hidden style={{ height: 22 }} />
+          <h1 className="text-5xl font-bold text-white" style={{ letterSpacing: '-0.02em' }}>
+            Puis-je financer ce projet ?
+          </h1>
+          <div aria-hidden style={{ height: 14 }} />
+          <p style={{ fontSize: 18, lineHeight: 1.7, color: 'var(--text-secondary)', maxWidth: 820 }}>
+            Simulez votre capacité d&apos;emprunt et votre score bancaire. Les réglages “officiels” se modifient dans les paramètres — ici, vous pouvez tester des scénarios.
           </p>
+          <div aria-hidden style={{ height: 30 }} />
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center justify-center text-white font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px"
+            style={CTA_STYLE}
+          >
+            Retour au tableau de bord
+          </Link>
         </div>
       </div>
 
       {/* MAIN - AIRY UI */}
-      <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 48px 128px 48px' }}>
-        <div className="grid grid-cols-1 xl:grid-cols-2 place-items-center xl:place-items-start" style={{ gap: '64px' }}>
+      <main style={{ ...CONTAINER, paddingTop: 0, paddingBottom: 128 }}>
+        <div className="grid grid-cols-1 xl:grid-cols-2 place-items-center xl:place-items-start" style={{ gap: 56 }}>
           
           {/* LEFT COLUMN */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '48px', width: '100%', maxWidth: '600px' }}>
@@ -712,27 +645,28 @@ export default function FaisabilitePage() {
         </div>
       </main>
 
-      {/* SAVE SECTION - Standalone at bottom */}
-      <div 
-        className="border-t border-[var(--border-color)]"
-        style={{ 
-          padding: '80px 48px',
-          background: 'linear-gradient(to top, rgba(139, 92, 246, 0.05), transparent)'
+      {/* FOOTER CTA */}
+      <div
+        className="border-t"
+        style={{
+          borderColor: 'rgba(255,255,255,0.08)',
+          paddingTop: 64,
+          paddingBottom: 96,
+          background: 'linear-gradient(to top, rgba(139, 92, 246, 0.06), transparent)',
         }}
       >
-        <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-          <button
-            onClick={isAuthenticated ? savePreferences : () => window.location.href = '/login'}
-            disabled={isSaving}
-            style={{ 
-              padding: '24px 80px', 
-              fontSize: '1.25rem',
-              borderRadius: '20px',
-            }}
-            className="font-bold transition-all shadow-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white hover:shadow-purple-500/30 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+        <div style={{ ...CONTAINER, textAlign: 'center' }}>
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center justify-center text-white font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px"
+            style={{ ...CTA_STYLE, padding: '18px 44px', fontSize: '1.05rem' }}
           >
-            {isSaving ? 'Sauvegarde...' : 'Sauvegarder'}
-          </button>
+            Retour au tableau de bord
+          </Link>
+          <div aria-hidden style={{ height: 14 }} />
+          <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            Pour modifier vos informations de référence, rendez-vous dans <span className="text-white/80">Paramètres</span>.
+          </div>
         </div>
       </div>
     </div>

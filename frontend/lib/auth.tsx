@@ -38,6 +38,7 @@ interface TokenResponse {
 // ============================================
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL_CANDIDATES = Array.from(new Set([API_URL, 'http://localhost:8000', 'http://localhost:8001']));
 
 // ============================================
 // Context
@@ -184,18 +185,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = async (email: string, password: string) => {
-    let response: Response;
+    let response: Response | null = null;
     
-    try {
-      response = await fetch(`${API_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password })
-      });
-    } catch (error) {
-      // Network error - server not reachable
+    for (const baseUrl of API_URL_CANDIDATES) {
+      try {
+        response = await fetch(`${baseUrl}/auth/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email, password })
+        });
+        break; // Réponse obtenue (OK ou non-OK) => on arrête
+      } catch {
+        // Echec réseau: on tente l'URL suivante
+        response = null;
+      }
+    }
+
+    if (!response) {
       throw new Error('Impossible de contacter le serveur. Vérifiez que le backend est lancé sur http://localhost:8000');
     }
 
@@ -234,23 +242,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (email: string, password: string, firstName: string, lastName: string) => {
-    let response: Response;
+    let response: Response | null = null;
     
-    try {
-      response = await fetch(`${API_URL}/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          first_name: firstName,
-          last_name: lastName
-        })
-      });
-    } catch (error) {
-      // Network error - server not reachable
+    for (const baseUrl of API_URL_CANDIDATES) {
+      try {
+        response = await fetch(`${baseUrl}/auth/register`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            first_name: firstName,
+            last_name: lastName
+          })
+        });
+        break; // Réponse obtenue (OK ou non-OK) => on arrête
+      } catch {
+        // Echec réseau: on tente l'URL suivante
+        response = null;
+      }
+    }
+
+    if (!response) {
       throw new Error('Impossible de contacter le serveur. Vérifiez que le backend est lancé sur http://localhost:8000');
     }
 
@@ -293,7 +308,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
     setUser(null);
-    router.push('/login');
+    router.push('/');
   };
 
   return (

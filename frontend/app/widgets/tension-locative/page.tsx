@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/lib/auth';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+
+const CONTAINER = { maxWidth: 1400, marginLeft: 'auto', marginRight: 'auto', paddingLeft: 48, paddingRight: 48 } as const;
+const CTA_STYLE = { background: 'linear-gradient(135deg,#8b5cf6,#4f46e5)', borderRadius: 40, boxShadow: '0 4px 20px rgba(139,92,246,0.4)', padding: '14px 32px', fontSize: '1rem', lineHeight: 1 } as const;
 
 // Types
 interface DepartementTension {
@@ -74,7 +76,6 @@ const getTensionLabel = (taux: number): string => {
 type TensionFilter = 'all' | 'tres-tendu' | 'tendu' | 'detendu';
 
 export default function TensionLocativePage() {
-  const { user, isAuthenticated, logout } = useAuth();
 
   const [tensionData, setTensionData] = useState<DepartementTension[]>([]);
   const [tensionFilter, setTensionFilter] = useState<TensionFilter>('all');
@@ -152,59 +153,28 @@ export default function TensionLocativePage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
-      {/* Navigation Bar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[var(--bg-primary)]/95 backdrop-blur-xl border-b border-[var(--border-color)]">
-        <div className="max-w-7xl mx-auto px-8 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="text-xl font-bold">
-              <span className="text-white">Brick</span>
-              <span className="text-[var(--primary-light)]">ByBrick</span>
-            </Link>
-            <span className="text-[var(--text-muted)]">|</span>
-            <span className="text-[var(--text-secondary)] text-sm">Tension Locative</span>
-          </div>
-
-          <div className="flex items-center gap-6">
-            {isAuthenticated && user ? (
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--primary-light)] flex items-center justify-center text-white font-semibold">
-                    {user.first_name.charAt(0)}{user.last_name.charAt(0)}
-                  </div>
-                  <span className="text-white font-medium hidden sm:block">{user.first_name}</span>
-                </div>
-                <button onClick={logout} className="px-6 py-3 rounded-xl text-sm text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-secondary)] transition-colors">
-                  Deconnexion
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-5">
-                <Link href="/login" className="px-6 py-3 rounded-xl text-sm text-[var(--text-secondary)] hover:text-white transition-colors">Connexion</Link>
-                <Link href="/register" className="px-8 py-4 rounded-xl font-medium bg-[var(--primary)] text-white hover:opacity-90 transition-opacity">Creer un compte</Link>
-              </div>
-            )}
-          </div>
-        </div>
-      </nav>
-
       {/* Hero */}
-      <div className="bg-gradient-to-b from-rose-600/10 to-transparent" style={{ paddingTop: '120px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '60px 48px', textAlign: 'center' }}>
-          <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm font-medium mb-8">
+      <div className="bg-gradient-to-b from-rose-600/10 to-transparent" style={{ paddingTop: 72 }}>
+        <div style={{ ...CONTAINER, paddingTop: 64, paddingBottom: 56, textAlign: 'center' }}>
+          <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm font-semibold">
             <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
-            Analyse du marché locatif
+            Outil • Tension locative
           </div>
-          <div style={{ height: '20px' }}></div>
-          <h1 className="text-5xl font-bold text-white mb-8">Tension Locative</h1>
-          <div style={{ height: '20px' }}></div>
-          <p className="text-xl text-[var(--text-secondary)] text-center" style={{ maxWidth: '700px', margin: '0 auto' }}>
-            Découvrez les départements avec les meilleurs taux de vacance pour votre investissement
+          <div aria-hidden style={{ height: 22 }} />
+          <h1 className="text-5xl font-bold text-white" style={{ letterSpacing: '-0.02em' }}>Tension Locative</h1>
+          <div aria-hidden style={{ height: 14 }} />
+          <p style={{ fontSize: 18, lineHeight: 1.7, color: 'var(--text-secondary)', maxWidth: 820, marginLeft: 'auto', marginRight: 'auto' }}>
+            Identifiez les départements les plus tendus — ceux où la demande locative dépasse fortement l'offre, pour maximiser la rentabilité de votre investissement.
           </p>
+          <div aria-hidden style={{ height: 30 }} />
+          <Link href="/dashboard" className="inline-flex items-center justify-center text-white font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px" style={CTA_STYLE}>
+            Retour au tableau de bord
+          </Link>
         </div>
       </div>
 
       {/* Main Content */}
-      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px 60px 48px' }}>
+      <main style={{ ...CONTAINER, paddingTop: 0, paddingBottom: 96 }}>
 
         {/* Stats Globales */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
@@ -449,6 +419,19 @@ export default function TensionLocativePage() {
           </div>
         )}
       </main>
+
+      {/* Footer CTA */}
+      <div className="border-t" style={{ borderColor: 'rgba(255,255,255,0.08)', paddingTop: 64, paddingBottom: 96, background: 'linear-gradient(to top, rgba(244,63,94,0.06), transparent)' }}>
+        <div style={{ ...CONTAINER, textAlign: 'center' }}>
+          <Link href="/dashboard" className="inline-flex items-center justify-center text-white font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px" style={{ ...CTA_STYLE, padding: '18px 44px', fontSize: '1.05rem' }}>
+            Retour au tableau de bord
+          </Link>
+          <div aria-hidden style={{ height: 14 }} />
+          <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            Données INSEE — consultez les <span className="text-white/80">Paramètres</span> pour ajuster votre profil.
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

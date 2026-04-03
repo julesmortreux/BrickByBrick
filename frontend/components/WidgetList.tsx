@@ -16,7 +16,7 @@ const widgets = [
   },
   {
     id: 2,
-    title: "Comparateur DVF",
+    title: "Évolution des prix",
     subtitle: "Prix 2020-2024",
     icon: 'chart',
     color: "from-blue-500 to-cyan-500",

@@ -3,9 +3,11 @@ BrickByBrick - API Backend
 FastAPI server pour la plateforme d'aide à l'investissement immobilier
 """
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import logging
+import json
+import math
 from datetime import datetime
 import pandas as pd
 
@@ -15,7 +17,7 @@ from schemas_market import (
     MarketDataResponse, ScopeFranceData, ScopeDepartementData, ScopeCityData,
     FaisabiliteRequest, FaisabiliteResponse, RendementRequisRequest, RendementRequisResponse
 )
-from finance import simuler_investissement
+from finance import simuler_investissement, calculer_score_investissement_v2
 from scraper import scrape_ad
 from ai_analyzer import analyze_with_ai
 import widgets
@@ -23,8 +25,11 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 # Auth & Database
-from database import init_db
-from auth import router as auth_router
+from database import init_db, get_db
+from auth import router as auth_router, get_optional_user
+from models import User, UserPreferences, UserSimulation
+from sqlalchemy.orm import Session
+from typing import List
 
 # Configuration du logging
 logging.basicConfig(
@@ -614,52 +619,143 @@ class AnalyzeRequest(BaseModel):
     )
 
 
-@app.post("/api/analyze")
-async def analyze_listing(request: AnalyzeRequest):
-    """
-    Analyse complète d'une annonce immobilière
-    
-    ## Workflow
-    
-    1. **Scraping** : Extraction des données de l'annonce (prix, surface, localisation)
-    2. **Widgets Data** : Récupération des données DVF et INSEE pour le code postal
-    3. **Simulation** : Calcul automatique de la rentabilité et du cashflow
-    
-    ## Données retournées
-    
-    - **scraped_data** : Données extraites de l'annonce
-    - **widgets_data** : Statistiques du marché local (DVF, INSEE)
-    - **financial_result** : Simulation financière complète
-    
-    ## Exemple de requête
-    
-    ```json
-    {
-        "url": "https://www.seloger.com/annonces/achat/appartement/paris-11eme-75/..."
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Distance en km entre deux coordonnées GPS (formule de Haversine)."""
+    R = 6371
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    return R * 2 * math.asin(math.sqrt(a))
+
+
+def _calculer_score_faisabilite(prix: float, prefs) -> float:
+    """Recalcule le score bancaire à partir du profil utilisateur et du prix du bien."""
+    score = 0
+
+    # Situation (30 pts)
+    statut_scores = {
+        "fonctionnaire": 30, "cdi": 25, "alternant": 18,
+        "cdd": 12, "auto-entrepreneur": 12, "retraite": 20,
+        "etudiant": 8, "chomeur": 5,
     }
-    ```
-    
-    ## Prérequis
-    
-    - Clé ScraperAPI configurée dans .env
-    - Données DVF et loyers chargées
-    
-    ## Temps de réponse
-    
-    ~30-90 secondes (scraping + analyse)
+    score += statut_scores.get(prefs.statut, 8)
+
+    # Revenus (25 pts)
+    revenu_total = (prefs.revenu_mensuel or 0) + (prefs.revenu_co_borrower or 0)
+    taux_interet = getattr(prefs, "taux_interet", 3.5) or 3.5
+    duree = prefs.duree_credit or 20
+    apport = prefs.apport or 0
+    emprunt = max(0, prix * 1.08 - apport)  # approximation avec frais notaire
+
+    if emprunt > 0 and taux_interet > 0:
+        t_m = taux_interet / 100 / 12
+        n = duree * 12
+        mensualite = (emprunt * t_m) / (1 - (1 + t_m) ** (-n))
+    else:
+        mensualite = emprunt / max(duree * 12, 1)
+
+    taux_endettement = (mensualite / revenu_total * 100) if revenu_total > 0 else 100
+    if taux_endettement <= 30:
+        score += 25
+    elif taux_endettement <= 35:
+        score += 18
+    elif taux_endettement <= 40:
+        score += 10
+    else:
+        score += 3
+
+    # Apport (20 pts)
+    pct_apport = (apport / prix * 100) if prix > 0 else 0
+    if pct_apport >= 20:
+        score += 20
+    elif pct_apport >= 10:
+        score += 14
+    elif pct_apport >= 5:
+        score += 8
+    else:
+        score += 3
+
+    # Garant (20 pts)
+    garant = getattr(prefs, "garant", "aucun")
+    if garant == "oui":
+        g_rev = prefs.revenu_garant or 0
+        g_proprio = getattr(prefs, "garant_proprio", False)
+        if g_proprio and g_rev >= 3000:
+            score += 20
+        elif g_rev >= 2000:
+            score += 14
+        else:
+            score += 8
+    else:
+        score += 0
+
+    # Endettement bonus (5 pts)
+    if taux_endettement <= 30:
+        score += 5
+    elif taux_endettement <= 35:
+        score += 2
+
+    return min(score, 100)
+
+
+@app.post("/api/analyze")
+async def analyze_listing(
+    request: AnalyzeRequest,
+    current_user: Optional[User] = Depends(get_optional_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Analyse complète d'une annonce immobilière — v2 avec croisement de données.
+
+    Workflow :
+    1. Scraping de l'annonce
+    2. Données marché (DVF, INSEE, loyers, transports, éducation)
+    3. Croisements widgets (rendement dept, tendance, faisabilité, proximité)
+    4. Simulation financière personnalisée
+    5. Scoring pondéré v2 (7 critères)
+    6. Analyse IA (texte ludique)
     """
     
     logger.info("=" * 80)
-    logger.info("[>] ANALYSE D'ANNONCE")
+    logger.info("[>] ANALYSE D'ANNONCE v2")
     logger.info("=" * 80)
     logger.info(f"[>] URL : {request.url}")
-    
+
+    # ── Charger les préférences utilisateur si authentifié ──
+    user_prefs = None
+    user_prefs_dict = None
+    if current_user:
+        user_prefs = db.query(UserPreferences).filter(UserPreferences.user_id == current_user.id).first()
+        if user_prefs:
+            user_prefs_dict = {
+                "prix_projet": user_prefs.prix_projet,
+                "apport": user_prefs.apport,
+                "duree_credit": user_prefs.duree_credit,
+                "taux_interet": getattr(user_prefs, "taux_interet", 3.5) or 3.5,
+                "statut": user_prefs.statut,
+                "anciennete": user_prefs.anciennete,
+                "revenu_mensuel": user_prefs.revenu_mensuel,
+                "co_borrower": user_prefs.co_borrower,
+                "revenu_co_borrower": user_prefs.revenu_co_borrower,
+                "garant": user_prefs.garant,
+                "revenu_garant": user_prefs.revenu_garant,
+                "garant_proprio": getattr(user_prefs, "garant_proprio", False),
+                "w5_rayon": getattr(user_prefs, "w5_rayon", 20),
+                "w5_ville_domicile": getattr(user_prefs, "w5_ville_domicile", None),
+                "w5_villes_relais": getattr(user_prefs, "w5_villes_relais", None),
+            }
+            logger.info(f"[OK] Préférences utilisateur chargées (user_id={current_user.id})")
+        else:
+            logger.info("[i] Utilisateur authentifié mais pas de préférences")
+    else:
+        logger.info("[i] Utilisateur non authentifié — analyse sans personnalisation")
+
     try:
         # ===== ÉTAPE A : SCRAPING =====
         logger.info("\n[>] ÉTAPE A : Scraping de l'annonce...")
-        
+
         scraped_data = scrape_ad(request.url)
-        
+
         if not scraped_data["success"]:
             raise HTTPException(
                 status_code=400,
@@ -669,7 +765,7 @@ async def analyze_listing(request: AnalyzeRequest):
                     "scraped_data": scraped_data
                 }
             )
-        
+
         logger.info(f"[OK] Scraping réussi : {scraped_data['prix']:,.0f}€, {scraped_data['surface']}m²")
         
         # ===== ÉTAPE B : WIDGETS DATA =====
@@ -898,29 +994,193 @@ async def analyze_listing(request: AnalyzeRequest):
                 "top_etablissements": []
             }
         
+        # ===== ÉTAPE B-BIS : CROISEMENTS WIDGETS =====
+        logger.info("\n[>] ÉTAPE B-BIS : Croisements widgets enrichis...")
+
+        cross_data = {
+            "rendement_dept": None,
+            "tendance_prix": None,
+            "score_faisabilite": None,
+            "distance_domicile_km": None,
+            "distances_relais": [],
+        }
+
+        # B.6 - Rendement du département
+        if data_store.dvf_2024 is not None and data_store.loyers is not None and departement:
+            try:
+                dvf_dept = data_store.dvf_2024[data_store.dvf_2024["Code departement"] == departement]
+                loyers_dept = data_store.loyers[data_store.loyers["Code departement"] == departement]
+                if not dvf_dept.empty and not loyers_dept.empty:
+                    prix_m2_dept = float(dvf_dept["prix_m2"].median())
+                    loyer_m2_dept = float(loyers_dept["loyer_m2"].median())
+                    rendement_dept = (loyer_m2_dept * 12 / prix_m2_dept) * 100 if prix_m2_dept > 0 else 0
+
+                    # Classement parmi tous les départements
+                    all_depts = data_store.dvf_2024.groupby("Code departement")["prix_m2"].median()
+                    all_loyers = data_store.loyers.groupby("Code departement")["loyer_m2"].median()
+                    rendements = ((all_loyers * 12) / all_depts * 100).dropna().sort_values(ascending=False)
+                    rang = int((rendements.index.get_loc(departement) + 1)) if departement in rendements.index else None
+
+                    cross_data["rendement_dept"] = {
+                        "rendement_brut_pct": round(rendement_dept, 2),
+                        "rang_national": rang,
+                        "total_departements": len(rendements),
+                    }
+                    logger.info(f"[OK] Rendement département {departement} : {rendement_dept:.2f}% (rang {rang})")
+            except Exception as e:
+                logger.error(f"[ERROR] Rendement département : {e}")
+
+        # B.7 - Tendance prix DVF (évolution 5 ans)
+        if data_store.dvf_2020_2024 is not None and departement:
+            try:
+                dvf_hist = data_store.dvf_2020_2024
+                dvf_hist_dept = dvf_hist[dvf_hist["Code departement"] == departement]
+                if not dvf_hist_dept.empty and "annee_mutation" in dvf_hist_dept.columns:
+                    prix_par_annee = dvf_hist_dept.groupby("annee_mutation")["prix_m2"].median()
+                    if len(prix_par_annee) >= 2:
+                        annee_min = prix_par_annee.index.min()
+                        annee_max = prix_par_annee.index.max()
+                        prix_debut = float(prix_par_annee.iloc[0])
+                        prix_fin = float(prix_par_annee.iloc[-1])
+                        evolution_pct = ((prix_fin - prix_debut) / prix_debut) * 100 if prix_debut > 0 else 0
+                        if evolution_pct > 3:
+                            tendance = "hausse"
+                        elif evolution_pct < -3:
+                            tendance = "baisse"
+                        else:
+                            tendance = "stable"
+                        cross_data["tendance_prix"] = {
+                            "evolution_pct": round(evolution_pct, 1),
+                            "tendance": tendance,
+                            "prix_m2_debut": round(prix_debut, 0),
+                            "prix_m2_fin": round(prix_fin, 0),
+                            "annee_debut": int(annee_min),
+                            "annee_fin": int(annee_max),
+                        }
+                        logger.info(f"[OK] Tendance prix dép. {departement} : {tendance} ({evolution_pct:+.1f}%)")
+            except Exception as e:
+                logger.error(f"[ERROR] Tendance prix : {e}")
+
+        # B.8 - Score faisabilité (si user authentifié)
+        if user_prefs and scraped_data.get("prix"):
+            try:
+                sf = _calculer_score_faisabilite(scraped_data["prix"], user_prefs)
+                cross_data["score_faisabilite"] = round(sf, 1)
+                logger.info(f"[OK] Score faisabilité : {sf:.1f}/100")
+            except Exception as e:
+                logger.error(f"[ERROR] Score faisabilité : {e}")
+
+        # B.9 - Distance domicile et villes relais
+        if user_prefs and user_prefs_dict.get("w5_ville_domicile"):
+            try:
+                ville_dom_raw = user_prefs_dict["w5_ville_domicile"]
+                if isinstance(ville_dom_raw, str):
+                    ville_dom = json.loads(ville_dom_raw)
+                else:
+                    ville_dom = ville_dom_raw
+
+                # Chercher les coordonnées de la commune du bien dans DVF
+                bien_lat, bien_lon = None, None
+                if data_store.dvf_2024 is not None and code_postal:
+                    dvf_cp = data_store.dvf_2024[data_store.dvf_2024["Code postal"].astype(str) == code_postal] if "Code postal" in data_store.dvf_2024.columns else pd.DataFrame()
+                    if not dvf_cp.empty:
+                        for lat_col in ["latitude", "lat", "Latitude"]:
+                            if lat_col in dvf_cp.columns:
+                                bien_lat = float(dvf_cp[lat_col].dropna().median())
+                                break
+                        for lon_col in ["longitude", "lon", "Longitude"]:
+                            if lon_col in dvf_cp.columns:
+                                bien_lon = float(dvf_cp[lon_col].dropna().median())
+                                break
+
+                if bien_lat and bien_lon and ville_dom.get("lat") and ville_dom.get("lon"):
+                    dist = _haversine_km(ville_dom["lat"], ville_dom["lon"], bien_lat, bien_lon)
+                    cross_data["distance_domicile_km"] = round(dist, 1)
+                    logger.info(f"[OK] Distance domicile : {dist:.1f} km")
+
+                    # Distances villes relais
+                    villes_relais_raw = user_prefs_dict.get("w5_villes_relais")
+                    if villes_relais_raw:
+                        if isinstance(villes_relais_raw, str):
+                            villes_relais = json.loads(villes_relais_raw)
+                        else:
+                            villes_relais = villes_relais_raw
+                        for vr in (villes_relais or []):
+                            if vr.get("lat") and vr.get("lon"):
+                                d = _haversine_km(vr["lat"], vr["lon"], bien_lat, bien_lon)
+                                cross_data["distances_relais"].append({
+                                    "nom": vr.get("nom", ""),
+                                    "distance_km": round(d, 1),
+                                })
+            except Exception as e:
+                logger.error(f"[ERROR] Distance domicile : {e}")
+
+        widgets_data["cross_data"] = cross_data
+
         # ===== ÉTAPE C : SIMULATION FINANCIÈRE =====
-        logger.info("\n[>] ÉTAPE C : Simulation financière automatique...")
-        
-        # Construire la requête de simulation à partir des données scrapées
-        simulation_request = SimulationRequest(
-            prix=scraped_data["prix"],
-            surface=scraped_data["surface"],
-            code_postal=code_postal,
-            nb_pieces=scraped_data.get("nb_pieces", 2)  # Défaut 2 si non trouvé
-        )
-        
-        # Lancer la simulation
+        logger.info("\n[>] ÉTAPE C : Simulation financière personnalisée...")
+
+        # Construire la requête avec les préférences user si disponibles
+        sim_kwargs = {
+            "prix": scraped_data["prix"],
+            "surface": scraped_data["surface"],
+            "code_postal": code_postal,
+            "nb_pieces": scraped_data.get("nb_pieces", 2),
+            # Pas de travaux par défaut pour une analyse d'annonce
+            # (le bien est en vente tel quel, on ne suppose pas de rénovation)
+            "travaux": 0,
+            # État rénové par défaut (frais notaire 7.5% au lieu de 8%, pas de travaux)
+            "etat_bien": "rénové",
+        }
+        if user_prefs_dict:
+            sim_kwargs["apport"] = user_prefs_dict.get("apport")
+            sim_kwargs["duree_credit"] = user_prefs_dict.get("duree_credit", 20)
+            sim_kwargs["taux_interet"] = user_prefs_dict.get("taux_interet", 3.5)
+
+        simulation_request = SimulationRequest(**sim_kwargs)
+
         financial_result = simuler_investissement(
             request=simulation_request,
             loyers_df=data_store.loyers
         )
 
-        logger.info(f"[OK] Simulation terminée : Score {financial_result.score_investissement:.1f}/100")
+        logger.info(f"[OK] Simulation terminée : Score legacy {financial_result.score_investissement:.1f}/100")
+
+        # ===== ÉTAPE C-BIS : SCORING V2 =====
+        logger.info("\n[>] ÉTAPE C-BIS : Scoring pondéré v2...")
+
+        ecart_pct = None
+        if widgets_data.get("dvf_stats") and widgets_data["dvf_stats"].get("comparaison"):
+            ecart_pct = widgets_data["dvf_stats"]["comparaison"].get("ecart_vs_median_pct")
+
+        taux_vac = None
+        if widgets_data.get("insee_stats") and widgets_data["insee_stats"].get("taux_vacance") is not None:
+            taux_vac = widgets_data["insee_stats"]["taux_vacance"]
+
+        tendance_pct = None
+        if cross_data.get("tendance_prix"):
+            tendance_pct = cross_data["tendance_prix"]["evolution_pct"]
+
+        nb_gares = widgets_data.get("transport_stats", {}).get("nb_gares")
+        nb_etab = widgets_data.get("student_stats", {}).get("nb_etablissements")
+
+        score_v2, verdict_v2, score_details = calculer_score_investissement_v2(
+            rentabilite_nette=financial_result.rentabilite_nette,
+            cashflow_mensuel_net=financial_result.cashflow_mensuel_net,
+            ecart_prix_vs_median_pct=ecart_pct,
+            taux_vacance=taux_vac,
+            score_faisabilite=cross_data.get("score_faisabilite"),
+            distance_domicile_km=cross_data.get("distance_domicile_km"),
+            tendance_prix_pct=tendance_pct,
+            nb_gares=nb_gares,
+            nb_etablissements_sup=nb_etab,
+        )
+
+        logger.info(f"[OK] Score v2 : {score_v2}/100 — {verdict_v2}")
 
         # ===== ÉTAPE D : ANALYSE IA =====
         logger.info("\n[>] ÉTAPE D : Analyse IA avec OpenAI...")
 
-        # Préparer les données financières pour l'IA
         financial_data_for_ai = {
             "cout_total_projet": financial_result.cout_total_projet,
             "frais_notaire": financial_result.frais_notaire,
@@ -930,23 +1190,87 @@ async def analyze_listing(request: AnalyzeRequest):
             "rentabilite_brute": financial_result.rentabilite_brute,
             "rentabilite_nette": financial_result.rentabilite_nette,
             "cashflow_mensuel_net": financial_result.cashflow_mensuel_net,
-            "autofinancement": financial_result.autofinancement
+            "autofinancement": financial_result.autofinancement,
         }
 
-        # Appeler l'analyse IA
         ai_analysis = await analyze_with_ai(
             scraped_data=scraped_data,
             market_data=widgets_data,
             financial_data=financial_data_for_ai,
-            user_preferences=None  # TODO: récupérer depuis le profil utilisateur
+            user_preferences=user_prefs_dict,
+            score_v2=score_v2,
+            verdict_v2=verdict_v2,
+            score_details=score_details,
+            cross_data=cross_data,
         )
 
-        logger.info(f"[OK] Analyse IA terminée : Score {ai_analysis.get('score', 'N/A')}/100 - {ai_analysis.get('verdict', 'N/A')}")
+        logger.info(f"[OK] Analyse IA terminée")
 
         # ===== RÉPONSE COMPLÈTE =====
         logger.info("=" * 80)
-        logger.info("[OK] ANALYSE COMPLÈTE TERMINÉE")
+        logger.info("[OK] ANALYSE v2 COMPLÈTE")
         logger.info("=" * 80)
+
+        # ===== SAUVEGARDE EN HISTORIQUE =====
+        if current_user:
+            try:
+                ville = scraped_data.get("ville", "Bien")
+                prix = scraped_data.get("prix", 0)
+                sim = UserSimulation(
+                    user_id=current_user.id,
+                    name=f"{ville} — {prix:,.0f}€ — {score_v2:.0f}/100",
+                    widget_type="analyse_ia",
+                    input_data={
+                        "url": request.url,
+                        "scraped_data": scraped_data,
+                    },
+                    result_data={
+                        "score_v2": score_v2,
+                        "verdict_v2": verdict_v2,
+                        "score_details": score_details,
+                        "cross_data": cross_data,
+                        "financial_result": {
+                            "prix_achat": financial_result.prix_achat,
+                            "surface": financial_result.surface,
+                            "prix_m2": financial_result.prix_m2,
+                            "code_postal": financial_result.code_postal,
+                            "departement": financial_result.departement,
+                            "frais_notaire": financial_result.frais_notaire,
+                            "cout_total_projet": financial_result.cout_total_projet,
+                            "apport": financial_result.apport,
+                            "montant_emprunt": financial_result.montant_emprunt,
+                            "mensualite_totale": financial_result.mensualite_totale,
+                            "loyer_mensuel_brut": financial_result.loyer_mensuel_brut,
+                            "loyer_annuel_brut": financial_result.loyer_annuel_brut,
+                            "charges_totales_mensuel": financial_result.charges_totales_mensuel,
+                            "charges_totales_annuel": financial_result.charges_totales_annuel,
+                            "rentabilite_brute": financial_result.rentabilite_brute,
+                            "rentabilite_nette": financial_result.rentabilite_nette,
+                            "rentabilite_nette_nette": financial_result.rentabilite_nette_nette,
+                            "cashflow_mensuel_brut": financial_result.cashflow_mensuel_brut,
+                            "cashflow_mensuel_net": financial_result.cashflow_mensuel_net,
+                            "cashflow_annuel_net": financial_result.cashflow_annuel_net,
+                            "autofinancement": financial_result.autofinancement,
+                            "effort_epargne_mensuel": financial_result.effort_epargne_mensuel,
+                            "score_investissement": financial_result.score_investissement,
+                            "verdict": financial_result.verdict,
+                        },
+                        "widgets_data": {
+                            "dvf_stats": widgets_data.get("dvf_stats"),
+                            "insee_stats": widgets_data.get("insee_stats"),
+                            "loyers_stats": widgets_data.get("loyers_stats"),
+                            "transport_stats": widgets_data.get("transport_stats"),
+                            "student_stats": widgets_data.get("student_stats"),
+                        },
+                        "ai_analysis": ai_analysis,
+                    },
+                )
+                db.add(sim)
+                db.commit()
+                logger.info(f"[OK] Analyse sauvegardée (id={sim.id})")
+            except Exception as e:
+                logger.error(f"[ERROR] Sauvegarde analyse : {e}")
+                db.rollback()
 
         return {
             "success": True,
@@ -954,16 +1278,26 @@ async def analyze_listing(request: AnalyzeRequest):
             "widgets_data": widgets_data,
             "financial_result": financial_result,
             "ai_analysis": ai_analysis,
+            "score_v2": score_v2,
+            "verdict_v2": verdict_v2,
+            "score_details": score_details,
+            "cross_data": cross_data,
+            "user_profile": {
+                "authenticated": current_user is not None,
+                "prenom": current_user.first_name if current_user else None,
+                "statut": user_prefs_dict.get("statut") if user_prefs_dict else None,
+                "ville_domicile": user_prefs_dict.get("w5_ville_domicile") if user_prefs_dict else None,
+            },
             "summary": {
                 "url": request.url,
                 "prix": scraped_data["prix"],
                 "surface": scraped_data["surface"],
                 "localisation": f"{scraped_data.get('ville', 'N/A')} ({code_postal})",
-                "score": ai_analysis.get("score", financial_result.score_investissement),
-                "verdict": ai_analysis.get("verdict", financial_result.verdict),
+                "score": score_v2,
+                "verdict": verdict_v2,
                 "cashflow_mensuel": financial_result.cashflow_mensuel_net,
                 "rentabilite_nette": financial_result.rentabilite_nette,
-                "autofinancement": financial_result.autofinancement
+                "autofinancement": financial_result.autofinancement,
             }
         }
         
@@ -982,6 +1316,89 @@ async def analyze_listing(request: AnalyzeRequest):
                 "message": str(e)
             }
         )
+
+
+# ============================================================================
+# ENDPOINT : Historique des analyses
+# ============================================================================
+
+@app.get("/api/analyses/history")
+async def get_analysis_history(
+    current_user: User = Depends(get_optional_user),
+    db: Session = Depends(get_db),
+):
+    """Retourne l'historique des analyses IA de l'utilisateur connecté."""
+    if not current_user:
+        return []
+
+    analyses = (
+        db.query(UserSimulation)
+        .filter(
+            UserSimulation.user_id == current_user.id,
+            UserSimulation.widget_type == "analyse_ia",
+        )
+        .order_by(UserSimulation.created_at.desc())
+        .limit(20)
+        .all()
+    )
+
+    return [
+        {
+            "id": a.id,
+            "name": a.name,
+            "url": a.input_data.get("url") if a.input_data else None,
+            "scraped_data": a.input_data.get("scraped_data") if a.input_data else None,
+            "score_v2": a.result_data.get("score_v2") if a.result_data else None,
+            "verdict_v2": a.result_data.get("verdict_v2") if a.result_data else None,
+            "created_at": a.created_at.isoformat() if a.created_at else None,
+        }
+        for a in analyses
+    ]
+
+
+@app.get("/api/analyses/{analysis_id}")
+async def get_analysis_detail(
+    analysis_id: int,
+    current_user: User = Depends(get_optional_user),
+    db: Session = Depends(get_db),
+):
+    """Retourne le détail complet d'une analyse sauvegardée."""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Non authentifié")
+
+    analysis = (
+        db.query(UserSimulation)
+        .filter(
+            UserSimulation.id == analysis_id,
+            UserSimulation.user_id == current_user.id,
+            UserSimulation.widget_type == "analyse_ia",
+        )
+        .first()
+    )
+
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analyse non trouvée")
+
+    return {
+        "success": True,
+        "scraped_data": analysis.input_data.get("scraped_data") if analysis.input_data else {},
+        "widgets_data": analysis.result_data.get("widgets_data", {}) if analysis.result_data else {},
+        "financial_result": analysis.result_data.get("financial_result", {}) if analysis.result_data else {},
+        "ai_analysis": analysis.result_data.get("ai_analysis", {}) if analysis.result_data else {},
+        "score_v2": analysis.result_data.get("score_v2", 0) if analysis.result_data else 0,
+        "verdict_v2": analysis.result_data.get("verdict_v2", "") if analysis.result_data else "",
+        "score_details": analysis.result_data.get("score_details", {}) if analysis.result_data else {},
+        "cross_data": analysis.result_data.get("cross_data", {}) if analysis.result_data else {},
+        "user_profile": {"authenticated": True},
+        "summary": {
+            "url": analysis.input_data.get("url", "") if analysis.input_data else "",
+            "prix": analysis.input_data.get("scraped_data", {}).get("prix", 0) if analysis.input_data else 0,
+            "surface": analysis.input_data.get("scraped_data", {}).get("surface", 0) if analysis.input_data else 0,
+            "localisation": analysis.input_data.get("scraped_data", {}).get("ville", "") if analysis.input_data else "",
+            "score": analysis.result_data.get("score_v2", 0) if analysis.result_data else 0,
+            "verdict": analysis.result_data.get("verdict_v2", "") if analysis.result_data else "",
+        },
+    }
 
 
 # ============================================================================

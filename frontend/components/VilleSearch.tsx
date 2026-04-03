@@ -115,7 +115,7 @@ export function VilleSearch({ placeholder, onSelect, disabled }: VilleSearchProp
           onFocus={() => results.length > 0 && setShowResults(true)}
           placeholder={placeholder}
           disabled={disabled}
-          className="w-full px-5 py-4 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] text-white text-lg disabled:opacity-50"
+          className="w-full px-8 py-5 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] text-white text-lg disabled:opacity-50"
         />
         {isSearching && (
           <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none">

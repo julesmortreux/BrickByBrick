@@ -503,73 +503,289 @@ def calculer_score_investissement(
     departement: str
 ) -> Tuple[float, str, list]:
     """
-    Calcule un score d'investissement et génère des conseils
-    
-    Critères :
-    - Rentabilité nette (40%)
-    - Cashflow (40%)
-    - Autofinancement (20%)
-    
-    Returns:
-        (score, verdict, conseils)
+    Score basique (legacy) - utilisé quand les données croisées ne sont pas disponibles.
     """
-    
-    score = 0
+    score, verdict, details = calculer_score_investissement_v2(
+        rentabilite_nette=rentabilite_nette,
+        cashflow_mensuel_net=cashflow_mensuel_net,
+    )
     conseils = []
-    
-    # Critère 1 : Rentabilité nette (40 points)
+    for key, d in details.items():
+        conseils.append(d["explication"])
+    return score, verdict, conseils
+
+
+def calculer_score_investissement_v2(
+    rentabilite_nette: float = 0,
+    cashflow_mensuel_net: float = 0,
+    ecart_prix_vs_median_pct: Optional[float] = None,
+    taux_vacance: Optional[float] = None,
+    score_faisabilite: Optional[float] = None,
+    distance_domicile_km: Optional[float] = None,
+    tendance_prix_pct: Optional[float] = None,
+    nb_gares: Optional[int] = None,
+    nb_etablissements_sup: Optional[int] = None,
+) -> Tuple[float, str, dict]:
+    """
+    Score d'investissement pondéré v2 — croise toutes les données disponibles.
+
+    Pondération (100 points) :
+    - Rentabilité nette      : 20 pts
+    - Cashflow               : 15 pts
+    - Prix vs marché         : 15 pts
+    - Tension locative       : 15 pts
+    - Faisabilité personnelle: 15 pts
+    - Localisation/proximité : 10 pts
+    - Potentiel valorisation : 10 pts
+
+    Si une donnée n'est pas disponible, ses points sont redistribués
+    proportionnellement aux critères disponibles.
+
+    Returns:
+        (score, verdict, details_par_critere)
+    """
+
+    details: dict = {}
+    raw_scores: dict = {}
+    weights: dict = {}
+
+    # ── 1. Rentabilité nette (20 pts) ──
+    w = 20
     if rentabilite_nette >= 6:
-        score += 40
-        conseils.append(f"✅ Excellente rentabilité nette ({rentabilite_nette:.2f}%) - Bien au-dessus de la moyenne du marché.")
+        s = w
+        expl = f"Excellente rentabilité nette ({rentabilite_nette:.2f}%) — bien au-dessus de la moyenne."
     elif rentabilite_nette >= 4.5:
-        score += 30
-        conseils.append(f"✅ Bonne rentabilité nette ({rentabilite_nette:.2f}%) - Conforme au marché.")
+        s = w * 0.80
+        expl = f"Bonne rentabilité nette ({rentabilite_nette:.2f}%) — conforme au marché."
     elif rentabilite_nette >= 3:
-        score += 20
-        conseils.append(f"⚠️ Rentabilité correcte ({rentabilite_nette:.2f}%) mais limite. Privilégiez des biens plus rentables.")
+        s = w * 0.55
+        expl = f"Rentabilité correcte ({rentabilite_nette:.2f}%) mais limitée."
     else:
-        score += 10
-        conseils.append(f"❌ Rentabilité faible ({rentabilite_nette:.2f}%). Risque de perte à long terme.")
-    
-    # Critère 2 : Cashflow (40 points)
+        s = w * 0.25
+        expl = f"Rentabilité faible ({rentabilite_nette:.2f}%). Risque de perte à long terme."
+    raw_scores["rentabilite"] = s
+    weights["rentabilite"] = w
+    details["rentabilite"] = {
+        "label": "Rentabilité nette",
+        "score": round(s, 1),
+        "max": w,
+        "valeur": f"{rentabilite_nette:.2f}%",
+        "explication": expl,
+    }
+
+    # ── 2. Cashflow (15 pts) ──
+    w = 15
     if cashflow_mensuel_net >= 200:
-        score += 40
-        conseils.append(f"✅ Excellent cashflow positif (+{cashflow_mensuel_net:.0f}€/mois) - Investissement sécurisé.")
+        s = w
+        expl = f"Excellent cashflow (+{cashflow_mensuel_net:.0f}€/mois) — investissement sécurisé."
     elif cashflow_mensuel_net >= 0:
-        score += 30
-        conseils.append(f"✅ Cashflow positif (+{cashflow_mensuel_net:.0f}€/mois) - Autofinancement assuré.")
+        s = w * 0.80
+        expl = f"Cashflow positif (+{cashflow_mensuel_net:.0f}€/mois) — autofinancement assuré."
     elif cashflow_mensuel_net >= -100:
-        score += 20
-        conseils.append(f"⚠️ Léger effort d'épargne ({abs(cashflow_mensuel_net):.0f}€/mois). Restez prudent.")
+        s = w * 0.45
+        expl = f"Léger effort d'épargne ({abs(cashflow_mensuel_net):.0f}€/mois)."
     else:
-        score += 10
-        conseils.append(f"❌ Effort d'épargne important ({abs(cashflow_mensuel_net):.0f}€/mois). Négociez le prix ou augmentez l'apport.")
-    
-    # Critère 3 : Autofinancement (20 points)
-    if autofinancement:
-        score += 20
-        conseils.append("✅ Le bien s'autofinance totalement.")
-    else:
-        conseils.append("⚠️ Effort d'épargne mensuel nécessaire. Assurez-vous d'avoir des revenus stables.")
-    
-    # Verdict selon le score
+        s = w * 0.20
+        expl = f"Effort d'épargne important ({abs(cashflow_mensuel_net):.0f}€/mois). Négociez le prix ou augmentez l'apport."
+    raw_scores["cashflow"] = s
+    weights["cashflow"] = w
+    details["cashflow"] = {
+        "label": "Cash-flow",
+        "score": round(s, 1),
+        "max": w,
+        "valeur": f"{'+' if cashflow_mensuel_net >= 0 else ''}{cashflow_mensuel_net:.0f}€/mois",
+        "explication": expl,
+    }
+
+    # ── 3. Prix vs marché (15 pts) ──
+    w = 15
+    if ecart_prix_vs_median_pct is not None:
+        ecart = ecart_prix_vs_median_pct
+        if ecart <= -10:
+            s = w
+            expl = f"Bien sous-évalué ({ecart:+.1f}% vs médiane) — excellente affaire."
+        elif ecart <= 0:
+            s = w * 0.80
+            expl = f"Prix légèrement sous la médiane ({ecart:+.1f}%) — bon positionnement."
+        elif ecart <= 10:
+            s = w * 0.55
+            expl = f"Prix proche de la médiane ({ecart:+.1f}%) — prix de marché."
+        elif ecart <= 20:
+            s = w * 0.30
+            expl = f"Prix au-dessus de la médiane ({ecart:+.1f}%) — marge de négociation possible."
+        else:
+            s = w * 0.15
+            expl = f"Bien surévalué ({ecart:+.1f}% vs médiane) — négociez fortement."
+        raw_scores["prix_marche"] = s
+        weights["prix_marche"] = w
+        details["prix_marche"] = {
+            "label": "Prix vs Marché",
+            "score": round(s, 1),
+            "max": w,
+            "valeur": f"{ecart:+.1f}%",
+            "explication": expl,
+        }
+
+    # ── 4. Tension locative (15 pts) ──
+    w = 15
+    if taux_vacance is not None:
+        if taux_vacance < 6:
+            s = w
+            expl = f"Zone très tendue (vacance {taux_vacance:.1f}%) — forte demande locative, risque de vacance minimal."
+        elif taux_vacance < 8:
+            s = w * 0.65
+            expl = f"Tension correcte (vacance {taux_vacance:.1f}%) — demande locative modérée."
+        elif taux_vacance < 10:
+            s = w * 0.35
+            expl = f"Tension faible (vacance {taux_vacance:.1f}%) — risque de vacance à anticiper."
+        else:
+            s = w * 0.15
+            expl = f"Marché détendu (vacance {taux_vacance:.1f}%) — risque élevé de vacance prolongée."
+        raw_scores["tension"] = s
+        weights["tension"] = w
+        details["tension"] = {
+            "label": "Tension locative",
+            "score": round(s, 1),
+            "max": w,
+            "valeur": f"{taux_vacance:.1f}%",
+            "explication": expl,
+        }
+
+    # ── 5. Faisabilité personnelle (15 pts) ──
+    w = 15
+    if score_faisabilite is not None:
+        ratio = min(score_faisabilite / 100, 1.0)
+        s = w * ratio
+        if ratio >= 0.75:
+            expl = f"Profil bancaire solide (score {score_faisabilite:.0f}/100) — financement très probable."
+        elif ratio >= 0.55:
+            expl = f"Profil bancaire correct (score {score_faisabilite:.0f}/100) — financement possible avec dossier soigné."
+        elif ratio >= 0.35:
+            expl = f"Profil bancaire fragile (score {score_faisabilite:.0f}/100) — financement incertain."
+        else:
+            expl = f"Profil bancaire insuffisant (score {score_faisabilite:.0f}/100) — financement très difficile."
+        raw_scores["faisabilite"] = s
+        weights["faisabilite"] = w
+        details["faisabilite"] = {
+            "label": "Faisabilité",
+            "score": round(s, 1),
+            "max": w,
+            "valeur": f"{score_faisabilite:.0f}/100",
+            "explication": expl,
+        }
+
+    # ── 6. Localisation / Proximité (10 pts) ──
+    w = 10
+    sub_pts = 0
+    sub_max = 0
+    loc_parts = []
+
+    # Transports (5 pts)
+    if nb_gares is not None:
+        sub_max += 5
+        if nb_gares >= 3:
+            sub_pts += 5
+            loc_parts.append(f"{nb_gares} gares à proximité — très bien desservi")
+        elif nb_gares >= 1:
+            sub_pts += 3
+            loc_parts.append(f"{nb_gares} gare(s) à proximité — desserte correcte")
+        else:
+            sub_pts += 0.5
+            loc_parts.append("Aucune gare à proximité — desserte limitée")
+
+    # Enseignement sup (3 pts)
+    if nb_etablissements_sup is not None:
+        sub_max += 3
+        if nb_etablissements_sup >= 5:
+            sub_pts += 3
+            loc_parts.append(f"{nb_etablissements_sup} établissements sup. — fort bassin étudiant")
+        elif nb_etablissements_sup >= 1:
+            sub_pts += 1.5
+            loc_parts.append(f"{nb_etablissements_sup} établissement(s) sup.")
+        else:
+            sub_pts += 0
+            loc_parts.append("Aucun établissement d'enseignement supérieur")
+
+    # Distance domicile (2 pts)
+    if distance_domicile_km is not None:
+        sub_max += 2
+        if distance_domicile_km <= 30:
+            sub_pts += 2
+            loc_parts.append(f"À {distance_domicile_km:.0f} km de votre domicile — gestion facilitée")
+        elif distance_domicile_km <= 100:
+            sub_pts += 1
+            loc_parts.append(f"À {distance_domicile_km:.0f} km de votre domicile — gestion à distance possible")
+        else:
+            sub_pts += 0.3
+            loc_parts.append(f"À {distance_domicile_km:.0f} km de votre domicile — gestion à distance nécessaire")
+
+    if sub_max > 0:
+        s = w * (sub_pts / sub_max)
+        expl = ". ".join(loc_parts) + "."
+        valeur_parts = []
+        if nb_gares is not None:
+            valeur_parts.append(f"{nb_gares} gare(s)")
+        if distance_domicile_km is not None:
+            valeur_parts.append(f"{distance_domicile_km:.0f} km")
+        raw_scores["localisation"] = s
+        weights["localisation"] = w
+        details["localisation"] = {
+            "label": "Localisation",
+            "score": round(s, 1),
+            "max": w,
+            "valeur": " · ".join(valeur_parts) if valeur_parts else "N/A",
+            "explication": expl,
+        }
+
+    # ── 7. Potentiel de valorisation (10 pts) ──
+    w = 10
+    if tendance_prix_pct is not None:
+        if tendance_prix_pct > 5:
+            s = w
+            expl = f"Prix en forte hausse ({tendance_prix_pct:+.1f}% sur 5 ans) — potentiel de plus-value élevé."
+        elif tendance_prix_pct > 0:
+            s = w * 0.70
+            expl = f"Prix en légère hausse ({tendance_prix_pct:+.1f}% sur 5 ans) — potentiel de valorisation correct."
+        elif tendance_prix_pct > -5:
+            s = w * 0.40
+            expl = f"Prix stables à légèrement en baisse ({tendance_prix_pct:+.1f}% sur 5 ans)."
+        else:
+            s = w * 0.15
+            expl = f"Prix en baisse ({tendance_prix_pct:+.1f}% sur 5 ans) — risque de perte en capital."
+        raw_scores["valorisation"] = s
+        weights["valorisation"] = w
+        details["valorisation"] = {
+            "label": "Potentiel",
+            "score": round(s, 1),
+            "max": w,
+            "valeur": f"{tendance_prix_pct:+.1f}%",
+            "explication": expl,
+        }
+
+    # ── Calcul du score final ──
+    total_weight = sum(weights.values())
+    if total_weight == 0:
+        total_weight = 1
+
+    # Normaliser sur 100 si des critères manquent
+    raw_total = sum(raw_scores.values())
+    score = (raw_total / total_weight) * 100
+
+    score = max(0, min(100, round(score, 1)))
+
+    # Verdict
     if score >= 80:
         verdict = "Excellent investissement"
     elif score >= 65:
         verdict = "Bon investissement"
     elif score >= 50:
-        verdict = "Investissement moyen"
-    else:
+        verdict = "Investissement correct"
+    elif score >= 35:
         verdict = "Investissement risqué"
-    
-    # Conseils généraux supplémentaires
-    if prix_m2 > 4000:
-        conseils.append("💡 Prix au m² élevé. Vérifiez que la localisation justifie ce prix (centre-ville, commodités).")
-    
-    if not autofinancement:
-        conseils.append("💡 Pour améliorer le cashflow : négociez le prix, augmentez l'apport, ou cherchez un bien plus rentable.")
-    
-    return score, verdict, conseils
+    else:
+        verdict = "À éviter"
+
+    return score, verdict, details
 
 
 # ============================================================================

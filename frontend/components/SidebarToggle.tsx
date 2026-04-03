@@ -10,39 +10,39 @@ export default function SidebarToggle({ isOpen, onToggle }: SidebarToggleProps) 
     <button
       onClick={onToggle}
       className={`
-        fixed top-4 z-50
-        w-12 h-12 rounded-xl
+        fixed top-5 z-50
+        w-10 h-10 rounded-lg
         bg-[var(--bg-card)] border border-[var(--border-color)]
         flex items-center justify-center
-        hover:bg-[var(--bg-secondary)] transition-all duration-200
-        shadow-lg
+        hover:bg-[var(--bg-elevated)] hover:border-[var(--border-hover)]
+        transition-all duration-150
       `}
       style={{
-        left: isOpen ? '296px' : '16px',
-        transition: 'left 0.3s ease-in-out'
+        left: isOpen ? '276px' : '16px',
+        transition: 'left 0.3s ease-out, background-color 0.15s, border-color 0.15s'
       }}
       aria-label={isOpen ? 'Fermer la sidebar' : 'Ouvrir la sidebar'}
     >
-      <div className="relative w-6 h-6">
+      <div className="relative w-5 h-5 flex items-center justify-center">
         <span
           className={`
-            absolute top-0 left-0 w-6 h-0.5 bg-white
-            transition-all duration-300
-            ${isOpen ? 'rotate-45 top-2.5' : ''}
+            absolute w-4 h-[1.5px] bg-[var(--text-secondary)]
+            transition-all duration-200
+            ${isOpen ? 'rotate-45' : '-translate-y-1.5'}
           `}
         />
         <span
           className={`
-            absolute top-2.5 left-0 w-6 h-0.5 bg-white
-            transition-all duration-300
+            absolute w-4 h-[1.5px] bg-[var(--text-secondary)]
+            transition-all duration-200
             ${isOpen ? 'opacity-0' : 'opacity-100'}
           `}
         />
         <span
           className={`
-            absolute top-5 left-0 w-6 h-0.5 bg-white
-            transition-all duration-300
-            ${isOpen ? '-rotate-45 top-2.5' : ''}
+            absolute w-4 h-[1.5px] bg-[var(--text-secondary)]
+            transition-all duration-200
+            ${isOpen ? '-rotate-45' : 'translate-y-1.5'}
           `}
         />
       </div>

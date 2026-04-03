@@ -4,6 +4,22 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
+import Image from 'next/image';
+
+function BrandMarkAuth({ height = 44 }: { height?: number }) {
+  const w = Math.round((height * 362) / 394);
+  return (
+    <Image
+      src="/logo-mark.png"
+      alt="BrickByBrick"
+      width={w}
+      height={height}
+      unoptimized
+      priority
+      style={{ objectFit: 'contain', objectPosition: 'center' }}
+    />
+  );
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -20,7 +36,7 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-      router.push('/');
+      router.push('/dashboard');
     } catch (err) {
       console.error('Login error:', err);
       setError(err instanceof Error ? err.message : 'Une erreur est survenue');
@@ -30,16 +46,30 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center" style={{ padding: '48px' }}>
-      <div style={{ width: '100%', maxWidth: '480px' }}>
+    <div
+      className="min-h-screen bg-[var(--bg-primary)] text-white flex items-center justify-center relative overflow-x-hidden"
+      style={{ padding: '48px' }}
+    >
+      <div className="absolute inset-0 pointer-events-none opacity-30 bg-grid" />
+      <div className="absolute inset-0 pointer-events-none opacity-30 bg-noise" />
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse 70% 50% at 50% 0%, rgba(139,92,246,0.18) 0%, transparent 60%)' }}
+      />
+
+      <div style={{ width: '100%', maxWidth: '520px', position: 'relative', zIndex: 1 }}>
         
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '64px' }}>
           <Link href="/" className="inline-block">
-            <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold' }}>
-              <span className="text-white">Brick</span>
-              <span className="bg-gradient-to-r from-[var(--primary-light)] to-[var(--accent-cyan)] bg-clip-text text-transparent">ByBrick</span>
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+              <BrandMarkAuth height={46} />
+              <span className="text-3xl font-black tracking-tight leading-none">
+                <span className="text-white">Brick</span>
+                <span className="text-violet-400">By</span>
+                <span className="text-white">Brick</span>
+              </span>
+            </div>
           </Link>
           <p style={{ color: 'var(--text-secondary)', marginTop: '16px', fontSize: '1.125rem' }}>
             Connectez-vous à votre compte
@@ -48,8 +78,8 @@ export default function LoginPage() {
 
         {/* Card */}
         <div 
-          className="bg-[var(--bg-card)] border border-[var(--border-color)]"
-          style={{ borderRadius: '24px', padding: '48px' }}
+          className="glass-card"
+          style={{ borderRadius: '24px', padding: '48px', boxShadow: '0 30px 80px rgba(0,0,0,0.35)' }}
         >
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
             
@@ -117,18 +147,21 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
+              className="transition-all duration-200 hover:-translate-y-px hover:opacity-90"
               style={{
                 width: '100%',
-                padding: '20px',
-                borderRadius: '16px',
-                background: 'linear-gradient(to right, var(--primary), var(--primary-light))',
+                padding: '16px 24px',
+                borderRadius: '40px',
+                background: 'linear-gradient(135deg,#8b5cf6,#4f46e5)',
                 color: 'white',
-                fontWeight: '600',
-                fontSize: '1.125rem',
+                fontWeight: '700',
+                fontSize: '1.05rem',
+                lineHeight: 1,
                 border: 'none',
                 cursor: isLoading ? 'not-allowed' : 'pointer',
                 opacity: isLoading ? 0.5 : 1,
-                transition: 'opacity 0.2s',
+                boxShadow: '0 8px 30px rgba(139,92,246,0.5)',
+                transition: 'opacity 0.2s, transform 0.2s',
                 marginTop: '8px'
               }}
             >

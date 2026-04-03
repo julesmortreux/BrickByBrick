@@ -5,6 +5,23 @@ import Link from 'next/link';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth, authFetch } from '@/lib/auth';
 
+const CONTAINER = {
+  maxWidth: 1400,
+  marginLeft: 'auto',
+  marginRight: 'auto',
+  paddingLeft: 48,
+  paddingRight: 48,
+} as const;
+
+const CTA_STYLE = {
+  background: 'linear-gradient(135deg,#8b5cf6,#4f46e5)',
+  borderRadius: 40,
+  boxShadow: '0 4px 20px rgba(139,92,246,0.4)',
+  padding: '14px 32px',
+  fontSize: '1rem',
+  lineHeight: 1,
+} as const;
+
 // All French departments
 const DEPARTEMENTS = [
   { code: "01", nom: "Ain" }, { code: "02", nom: "Aisne" }, { code: "03", nom: "Allier" },
@@ -82,14 +99,13 @@ const Icons = {
 };
 
 export default function DVFComparateurPage() {
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated } = useAuth();
   
   // State
   const [departement, setDepartement] = useState('69');
   const [typeBien, setTypeBien] = useState('Appartement');
   const [anneeDebut, setAnneeDebut] = useState(2020);
   const [anneeFin, setAnneeFin] = useState(2024);
-  const [isSaving, setIsSaving] = useState(false);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
 
   // Load preferences
@@ -115,42 +131,6 @@ export default function DVFComparateurPage() {
     } catch (error) {
       console.error('Failed to load preferences:', error);
       setPrefsLoaded(true);
-    }
-  };
-
-  const savePreferences = async () => {
-    if (!isAuthenticated) {
-      window.location.href = '/login';
-      return;
-    }
-
-    setIsSaving(true);
-
-    try {
-      const response = await authFetch('/auth/preferences');
-      let currentPrefs = {};
-      if (response.ok) {
-        const data = await response.json();
-        if (data) currentPrefs = data;
-      }
-
-      const updateResponse = await authFetch('/auth/preferences', {
-        method: 'PUT',
-        body: JSON.stringify({
-          ...currentPrefs,
-          w2_departement: departement,
-          w2_type_bien: typeBien,
-          w2_annee_debut: anneeDebut,
-          w2_annee_fin: anneeFin
-        })
-      });
-
-      if (updateResponse.ok) {
-        window.location.href = '/';
-      }
-    } catch (error) {
-      console.error('Save error:', error);
-      setIsSaving(false);
     }
   };
 
@@ -207,57 +187,32 @@ export default function DVFComparateurPage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
-      {/* Navigation Bar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[var(--bg-primary)]/95 backdrop-blur-xl border-b border-[var(--border-color)]">
-        <div className="max-w-7xl mx-auto px-8 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="text-xl font-bold">
-              <span className="text-white">Brick</span>
-              <span className="text-[var(--primary-light)]">ByBrick</span>
-            </Link>
-            <span className="text-[var(--text-muted)]">|</span>
-            <span className="text-[var(--text-secondary)] text-sm">Évolution des Prix</span>
-          </div>
-          
-          <div className="flex items-center gap-6">
-            {isAuthenticated && user ? (
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--primary-light)] flex items-center justify-center text-white font-semibold">
-                    {user.first_name.charAt(0)}{user.last_name.charAt(0)}
-                  </div>
-                  <span className="text-white font-medium hidden sm:block">{user.first_name}</span>
-                </div>
-                <button onClick={logout} className="px-6 py-3 rounded-xl text-sm text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-secondary)] transition-colors">
-                  Déconnexion
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-5">
-                <Link href="/login" className="px-6 py-3 rounded-xl text-sm text-[var(--text-secondary)] hover:text-white transition-colors">Connexion</Link>
-                <Link href="/register" className="px-8 py-4 rounded-xl font-medium bg-[var(--primary)] text-white hover:opacity-90 transition-opacity">Créer un compte</Link>
-              </div>
-            )}
-          </div>
-        </div>
-      </nav>
-
       {/* Hero */}
-      <div className="bg-gradient-to-b from-blue-600/10 to-transparent" style={{ paddingTop: '120px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '60px 48px', textAlign: 'center' }}>
-          <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-medium mb-8">
+      <div className="bg-gradient-to-b from-blue-600/10 to-transparent" style={{ paddingTop: '72px' }}>
+        <div style={{ ...CONTAINER, paddingTop: 64, paddingBottom: 56, textAlign: 'center' }}>
+          <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-sm font-semibold">
             <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-            Analyse du marché immobilier
+            Outil • Évolution des prix
           </div>
-          <h1 className="text-5xl font-bold text-white mb-8">Évolution des Prix</h1>
-          <p className="text-xl text-[var(--text-secondary)]" style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-            Analysez les tendances du marché immobilier sur la période de votre choix
+          <div aria-hidden style={{ height: 22 }} />
+          <h1 className="text-5xl font-bold text-white" style={{ letterSpacing: '-0.02em' }}>Évolution des prix</h1>
+          <div aria-hidden style={{ height: 14 }} />
+          <p style={{ fontSize: 18, lineHeight: 1.7, color: 'var(--text-secondary)', maxWidth: 820, marginLeft: 'auto', marginRight: 'auto' }}>
+            Analysez les tendances du marché immobilier sur la période de votre choix. Les valeurs “de référence” se règlent dans les paramètres — ici, vous explorez.
           </p>
+          <div aria-hidden style={{ height: 30 }} />
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center justify-center text-white font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px"
+            style={CTA_STYLE}
+          >
+            Retour au tableau de bord
+          </Link>
         </div>
       </div>
 
       {/* Main Content */}
-      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px 60px 48px' }}>
+      <main style={{ ...CONTAINER, paddingTop: 0, paddingBottom: 60 }}>
         
         {/* Controls */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8" style={{ marginBottom: '40px' }}>
@@ -414,20 +369,28 @@ export default function DVFComparateurPage() {
 
       </main>
 
-      {/* Save Section */}
-      <div 
-        className="border-t border-[var(--border-color)]"
-        style={{ padding: '80px 48px', background: 'linear-gradient(to top, rgba(59, 130, 246, 0.05), transparent)' }}
+      {/* Footer CTA */}
+      <div
+        className="border-t"
+        style={{
+          borderColor: 'rgba(255,255,255,0.08)',
+          paddingTop: 64,
+          paddingBottom: 96,
+          background: 'linear-gradient(to top, rgba(59, 130, 246, 0.06), transparent)',
+        }}
       >
-        <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-          <button
-            onClick={savePreferences}
-            disabled={isSaving}
-            style={{ padding: '24px 80px', fontSize: '1.25rem', borderRadius: '20px' }}
-            className="font-bold transition-all shadow-2xl bg-gradient-to-r from-blue-600 via-cyan-600 to-blue-600 text-white hover:shadow-blue-500/30 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+        <div style={{ ...CONTAINER, textAlign: 'center' }}>
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center justify-center text-white font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px"
+            style={{ ...CTA_STYLE, padding: '18px 44px', fontSize: '1.05rem' }}
           >
-            {isSaving ? 'Sauvegarde...' : 'Sauvegarder'}
-          </button>
+            Retour au tableau de bord
+          </Link>
+          <div aria-hidden style={{ height: 14 }} />
+          <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            Pour modifier vos informations de référence, rendez-vous dans <span className="text-white/80">Paramètres</span>.
+          </div>
         </div>
       </div>
     </div>

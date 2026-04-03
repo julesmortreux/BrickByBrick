@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { Slider } from '@/components/ui/slider';
 import { useAuth, authFetch } from '@/lib/auth';
 
+const CONTAINER = { maxWidth: 1400, marginLeft: 'auto', marginRight: 'auto', paddingLeft: 48, paddingRight: 48 } as const;
+const CTA_STYLE = { background: 'linear-gradient(135deg,#8b5cf6,#4f46e5)', borderRadius: 40, boxShadow: '0 4px 20px rgba(139,92,246,0.4)', padding: '14px 32px', fontSize: '1rem', lineHeight: 1 } as const;
+
 // Types
 interface CalculationResult {
   prixTotal: number;
@@ -63,7 +66,7 @@ function formatEuro(value: number, decimals: number = 0): string {
 }
 
 export default function RendementRequisPage() {
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   // États des paramètres
   const [apport, setApport] = useState(10000);
@@ -74,10 +77,6 @@ export default function RendementRequisPage() {
   const [mounted, setMounted] = useState(false);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   
-  // Save state
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -138,69 +137,6 @@ export default function RendementRequisPage() {
     }
   };
 
-  const savePreferences = async () => {
-    if (!isAuthenticated) {
-      setSaveMessage({ type: 'error', text: 'Connectez-vous pour sauvegarder' });
-      setTimeout(() => setSaveMessage(null), 3000);
-      return;
-    }
-
-    setIsSaving(true);
-    setSaveMessage(null);
-
-    try {
-      // Fetch existing preferences to preserve other widgets' settings
-      const getResponse = await authFetch('/auth/preferences');
-      let existingPrefs = {};
-      if (getResponse.ok) {
-        const data = await getResponse.json();
-        if (data) existingPrefs = data;
-      }
-
-      // Calculate result for saving
-      const prixTotal = apport + emprunt;
-      const mensualite = calculerMensualite(emprunt, tauxInteret, dureeCredit);
-      const annuite = mensualite * 12;
-      const coefNet = inclureCharges ? 0.8 : 1.0;
-      const loyerAnnuelBrut = annuite / coefNet;
-      const loyerMensuelBrut = loyerAnnuelBrut / 12;
-      const rendementRequis = prixTotal > 0 ? (loyerAnnuelBrut / prixTotal) * 100 : 0;
-      const coutTotal = mensualite * dureeCredit * 12;
-      const coutCredit = coutTotal - emprunt;
-
-      // Merge with Widget 7 (rendement requis) fields
-      const response = await authFetch('/auth/preferences', {
-        method: 'PUT',
-        body: JSON.stringify({
-          ...existingPrefs,
-          // Widget 7 fields
-          rendement_requis_apport: apport,
-          rendement_requis_emprunt: emprunt,
-          rendement_requis_taux_interet: tauxInteret,
-          rendement_requis_duree_credit: dureeCredit,
-          rendement_requis_inclure_charges: inclureCharges,
-          rendement_requis_prix_total: prixTotal,
-          rendement_requis_mensualite: mensualite,
-          rendement_requis_loyer_mensuel_requis: loyerMensuelBrut,
-          rendement_requis_rendement: rendementRequis,
-          rendement_requis_cout_total: coutTotal,
-          rendement_requis_cout_credit: coutCredit
-        })
-      });
-
-      if (response.ok) {
-        // Redirect to home page after successful save
-        window.location.href = '/';
-      } else {
-        setSaveMessage({ type: 'error', text: 'Erreur lors de la sauvegarde' });
-        setIsSaving(false);
-      }
-    } catch (error) {
-      console.error('Error saving preferences:', error);
-      setSaveMessage({ type: 'error', text: 'Erreur de connexion' });
-      setIsSaving(false);
-    }
-  };
 
   // Calcul principal
   const result = useMemo((): CalculationResult => {
@@ -323,59 +259,28 @@ export default function RendementRequisPage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
-      {/* Navigation Bar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[var(--bg-primary)]/95 backdrop-blur-xl border-b border-[var(--border-color)]">
-        <div className="max-w-7xl mx-auto px-8 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="text-xl font-bold">
-              <span className="text-white">Brick</span>
-              <span className="text-[var(--primary-light)]">ByBrick</span>
-            </Link>
-            <span className="text-[var(--text-muted)]">|</span>
-            <span className="text-[var(--text-secondary)] text-sm">Rendement Requis</span>
-          </div>
-
-          <div className="flex items-center gap-6">
-            {isAuthenticated && user ? (
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--primary-light)] flex items-center justify-center text-white font-semibold">
-                    {user.first_name.charAt(0)}{user.last_name.charAt(0)}
-                  </div>
-                  <span className="text-white font-medium hidden sm:block">{user.first_name}</span>
-                </div>
-                <button onClick={logout} className="px-6 py-3 rounded-xl text-sm text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-secondary)] transition-colors">
-                  Déconnexion
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-5">
-                <Link href="/login" className="px-6 py-3 rounded-xl text-sm text-[var(--text-secondary)] hover:text-white transition-colors">Connexion</Link>
-                <Link href="/register" className="px-8 py-4 rounded-xl font-medium bg-[var(--primary)] text-white hover:opacity-90 transition-opacity">Créer un compte</Link>
-              </div>
-            )}
-          </div>
-        </div>
-      </nav>
-
       {/* Hero */}
-      <div className="bg-gradient-to-b from-indigo-600/10 to-transparent" style={{ paddingTop: '120px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '60px 48px', textAlign: 'center' }}>
-          <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-sm font-medium mb-8">
+      <div className="bg-gradient-to-b from-indigo-600/10 to-transparent" style={{ paddingTop: 72 }}>
+        <div style={{ ...CONTAINER, paddingTop: 64, paddingBottom: 56, textAlign: 'center' }}>
+          <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-sm font-semibold">
             <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
-            Simulateur de rendement locatif
+            Outil • Rendement requis
           </div>
-          <div style={{ height: '20px' }}></div>
-          <h1 className="text-5xl font-bold text-white mb-8">Rendement Requis</h1>
-          <div style={{ height: '20px' }}></div>
-          <p className="text-xl text-[var(--text-secondary)] text-center" style={{ maxWidth: '700px', margin: '0 auto' }}>
-            Calculez le rendement brut minimal requis pour que les loyers couvrent votre crédit immobilier
+          <div aria-hidden style={{ height: 22 }} />
+          <h1 className="text-5xl font-bold text-white" style={{ letterSpacing: '-0.02em' }}>Rendement Requis</h1>
+          <div aria-hidden style={{ height: 14 }} />
+          <p style={{ fontSize: 18, lineHeight: 1.7, color: 'var(--text-secondary)', maxWidth: 820, marginLeft: 'auto', marginRight: 'auto' }}>
+            Calculez le rendement brut minimal pour que les loyers couvrent votre crédit. Les paramètres de base se règlent dans les réglages.
           </p>
+          <div aria-hidden style={{ height: 30 }} />
+          <Link href="/dashboard" className="inline-flex items-center justify-center text-white font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px" style={CTA_STYLE}>
+            Retour au tableau de bord
+          </Link>
         </div>
       </div>
 
       {/* Main Content */}
-      <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 48px 80px 48px' }}>
+      <main style={{ ...CONTAINER, paddingTop: 0, paddingBottom: 96 }}>
         <div className="grid grid-cols-1 xl:grid-cols-2 place-items-center xl:place-items-start" style={{ gap: '64px' }}>
 
           {/* LEFT COLUMN - Paramètres */}
@@ -728,26 +633,16 @@ export default function RendementRequisPage() {
       </main>
 
       {/* SAVE SECTION - Standalone at bottom */}
-      <div 
-        className="border-t border-[var(--border-color)]"
-        style={{ 
-          padding: '80px 48px',
-          background: 'linear-gradient(to top, rgba(99, 102, 241, 0.05), transparent)'
-        }}
-      >
-        <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-          <button
-            onClick={isAuthenticated ? savePreferences : () => window.location.href = '/login'}
-            disabled={isSaving}
-            style={{ 
-              padding: '24px 80px', 
-              fontSize: '1.25rem',
-              borderRadius: '20px',
-            }}
-            className="font-bold transition-all shadow-2xl bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-600 text-white hover:shadow-indigo-500/30 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
-          >
-            {isSaving ? 'Sauvegarde...' : 'Sauvegarder'}
-          </button>
+      {/* Footer CTA */}
+      <div className="border-t" style={{ borderColor: 'rgba(255,255,255,0.08)', paddingTop: 64, paddingBottom: 96, background: 'linear-gradient(to top, rgba(99,102,241,0.06), transparent)' }}>
+        <div style={{ ...CONTAINER, textAlign: 'center' }}>
+          <Link href="/dashboard" className="inline-flex items-center justify-center text-white font-semibold transition-all duration-200 hover:opacity-90 hover:-translate-y-px" style={{ ...CTA_STYLE, padding: '18px 44px', fontSize: '1.05rem' }}>
+            Retour au tableau de bord
+          </Link>
+          <div aria-hidden style={{ height: 14 }} />
+          <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            Pour modifier vos informations de référence, rendez-vous dans <span className="text-white/80">Paramètres</span>.
+          </div>
         </div>
       </div>
     </div>
