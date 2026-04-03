@@ -119,7 +119,9 @@ API docs available at `http://localhost:8000/docs` (Swagger UI).
 
 ## Status
 
-This is an active personal project. Core features are functional - onboarding, dashboard, AI analyzer, and all 12 widgets. Planned next steps include production deployment and mobile responsiveness.
+This is an active personal project. Core features are functional - onboarding, dashboard, AI analyzer, and all 12 widgets.
+
+**In development:** Computer vision module using YOLOv8 to automatically detect renovation needs from listing photos - classifying kitchens and bathrooms by condition level (needs work / acceptable / excellent) to refine investment scoring.
 
 ---
 
